@@ -79,25 +79,52 @@ File `render.yaml` đã cấu hình sẵn (gói Free, mật khẩu admin do Rend
 
 ⚠ Lưu ý gói Free: server ngủ sau 15 phút không có truy cập (lần mở đầu chờ ~1 phút); ổ đĩa bị xoá mỗi lần khởi động lại nên **nội dung tải lên thêm sẽ mất**, website quay về dữ liệu demo trong `demo/`. Khi chạy thật, dùng VPS bên dưới hoặc gói Render trả phí có Persistent Disk (các bước có sẵn ở cuối `render.yaml`: `plan: starter`, `disk` gắn ở `/var/data`, `STORAGE_DIR=/var/data`, `DEMO_SEED=false`).
 
-## Đưa lên máy chủ (VPS)
+## Đưa lên máy chủ (Cloud Server / VPS Ubuntu 24.04)
 
-1. Copy thư mục lên server, chạy `npm install --omit=dev`.
-2. Tạo `.env` với `ADMIN_PASSWORD` mạnh và `DEMO_SEED=false` (không nạp dữ liệu demo vào web thật). Nếu muốn để dữ liệu ngoài thư mục code (dễ cập nhật code, dễ sao lưu), thêm `STORAGE_DIR=/var/lib/ltb-media`.
-3. Chạy nền bằng pm2: `pm2 start npm --name ltb-media -- start`.
-4. Đặt Nginx phía trước + HTTPS (Let's Encrypt). **Nhớ tăng giới hạn upload** vì audio cho phép tới 300 MB:
+Viết cho iNET **Cloud Server Linux 2** (1 core, 2 GB RAM, 20 GB SSD) hoặc VPS Ubuntu 24.04 tương đương. Không dùng gói *Hosting* của iNET (chỉ chạy PHP/WordPress).
 
-```nginx
-server {
-    server_name ltbmedia.vn;
-    client_max_body_size 310m;
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_request_buffering off;
-    }
-}
+### 1. Chuẩn bị
+
+- Khi tạo máy chủ, chọn image **Linux Core → Ubuntu-24.04-LTS** (không chọn các image "Linux Phần Mềm" — chúng cài sẵn panel chiếm cổng 80/443).
+- Ở nơi quản lý tên miền, tạo 2 bản ghi **A**: `@` và `www` → IP máy chủ. Làm trước để script cấp SSL luôn; làm sau cũng được.
+
+### 2. Cài đặt (1 lệnh)
+
+SSH vào máy chủ (`ssh root@IP_MAY_CHU`) rồi chạy:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nmt-ht/upload-media/master/deploy/setup.sh -o setup.sh
+sudo DOMAIN=ltbmedia.net EMAIL=contact@ltbmedia.net bash setup.sh
 ```
+
+Script ([deploy/setup.sh](deploy/setup.sh)) tự làm: cập nhật Ubuntu, swap 1 GB, Node.js 22, tải code về `/opt/ltb-media/app`, tạo `.env` với **mật khẩu admin ngẫu nhiên** (in ra màn hình cuối cùng — lưu lại), dữ liệu ở `/var/lib/ltb-media` (`DEMO_SEED=false`, kho trống, giữ thông tin liên hệ), chạy nền bằng systemd (tự bật lại khi lỗi / khởi động lại máy), Nginx với giới hạn upload 310 MB, tường lửa (chỉ mở SSH/HTTP/HTTPS), SSL Let's Encrypt (tự gia hạn), sao lưu `db.json` hằng ngày lúc 2:30.
+Chạy lại script an toàn — không đụng tới dữ liệu và mật khẩu đã có.
+
+Nếu lúc cài tên miền chưa trỏ về máy chủ, script bỏ qua SSL và in sẵn lệnh `certbot` để chạy sau.
+
+### 3. Vận hành
+
+| Việc | Lệnh |
+|---|---|
+| Cập nhật web lên bản mới nhất trên GitHub | `sudo /opt/ltb-media/app/deploy/update.sh` |
+| Xem log | `journalctl -u ltb-media -f` |
+| Khởi động lại web | `sudo systemctl restart ltb-media` |
+| Xem mật khẩu admin | `sudo grep ADMIN_PASSWORD /opt/ltb-media/.env` |
+| Đổi mật khẩu admin | sửa dòng đó trong `/opt/ltb-media/.env` rồi `sudo systemctl restart ltb-media` |
+| Dung lượng ổ đĩa | `df -h /` và `sudo du -sh /var/lib/ltb-media/uploads` |
+
+### 4. Sao lưu ra ngoài máy chủ (nên làm)
+
+Mặc định chỉ sao lưu `db.json` trên chính máy chủ. Để đẩy cả `db.json` lẫn toàn bộ ảnh/âm thanh sang Google Drive mỗi đêm, cấu hình rclone 1 lần:
+
+1. Trên máy chủ chạy `sudo rclone config` → `n` (new remote) → tên **`ltbbackup`** → chọn **Google Drive** → để trống client id/secret → scope `1` (full access) → các câu sau Enter mặc định.
+2. Khi hỏi *"Use web browser to automatically authenticate?"* chọn **`n`**: rclone in ra một lệnh `rclone authorize "drive" "..."`. Chạy lệnh đó trên máy tính có trình duyệt (cài rclone từ rclone.org), đăng nhập Google, rồi dán mã nhận được vào máy chủ.
+3. Kiểm tra: `sudo /opt/ltb-media/app/deploy/backup.sh` — dòng cuối phải là "đã đẩy ra ltbbackup:ltb-media".
+
+Trên Drive sẽ có thư mục `ltb-media/` gồm `db/` (30 bản db.json gần nhất), `uploads/` (bản sao toàn bộ file) và `deleted/<ngày>` (file admin đã xoá trên web — xoá hẳn khi chắc chắn không cần).
+Ngoài ra nên bật **Snapshot / Backup tự động** của nhà cung cấp máy chủ (iNET: mục Cloud Server → Snapshots).
+
+**Khôi phục:** dừng web (`sudo systemctl stop ltb-media`), giải nén bản `db-<ngày>.json.gz` cần dùng vào `/var/lib/ltb-media/data/db.json`, chép lại `uploads/` từ Drive (`sudo rclone copy ltbbackup:ltb-media/uploads /var/lib/ltb-media/uploads`), `sudo chown -R ltbmedia: /var/lib/ltb-media`, rồi `sudo systemctl start ltb-media`.
 
 ## Cấu trúc
 
@@ -106,5 +133,7 @@ server.js            API + phục vụ trang
 config.js            giới hạn upload, cổng, mật khẩu
 lib/db.js            lưu dữ liệu JSON
 lib/image-size.js    đọc kích thước ảnh (không cần thư viện ngoài)
+lib/audio-info.js    đọc thông số âm thanh (kHz / bit / kbps)
+deploy/              script cài đặt, cập nhật, sao lưu trên máy chủ Ubuntu
 public/              giao diện (HTML/CSS/JS thuần, không cần build)
 ```
