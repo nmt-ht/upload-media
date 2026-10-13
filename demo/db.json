@@ -2,8 +2,16 @@
   "settings": {
     "whatsapp": "0901234567",
     "zalo": "0901234567",
-    "telegram": "@ltbmedia_demo",
-    "email": "",
+    "telegram": "@LTBmedia.network",
+    "email": "Contact@ltbmedia.net",
+    "address": "978 Nguyen Tat Thanh Street, Xuan Ha Ward, Thanh Khe District, Da Nang City, Vietnam",
+    "copyrightEmails": "Copyright@ltbmedia.net\nTakedown@ltbmedia.net\nProtection@ltbmedia.net",
+    "website": "ltbmedia.net",
+    "workingHours": "Monday – Sunday | 8:00 AM – 9:00 PM (GMT+7)",
+    "phone": "",
+    "facebook": "",
+    "youtube": "",
+    "tiktok": "",
     "monitoringUrl": ""
   },
   "media": [

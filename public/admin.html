@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <title>Quản trị — LTB Media</title>
+  <title>Quản trị — LTB Media Network</title>
+  <link rel="icon" type="image/png" href="/img/logo-mark.png">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,8 +62,8 @@
   <!-- Đăng nhập -->
   <main class="wrap" id="view-login" hidden>
     <form class="panel login" id="login-form">
-      <div class="brand"><span class="brand-mark" data-icon="lock"></span>
-        <span><span class="brand-name">LTB MEDIA</span><br><span class="brand-sub">QUẢN TRỊ NỘI DUNG</span></span></div>
+      <div class="brand brand-stack"><img class="brand-logo" src="/img/logo.png" alt="LTB Media Network" width="167" height="48">
+        <span class="brand-sub">QUẢN TRỊ NỘI DUNG</span></div>
       <label class="field">Mật khẩu
         <input class="input" type="password" name="password" autocomplete="current-password" required autofocus></label>
       <button class="btn btn-primary" type="submit">Đăng nhập</button>
@@ -140,7 +141,22 @@
           <label class="field">WhatsApp <input class="input" name="whatsapp" placeholder="84901234567 hoặc https://wa.me/..."></label>
           <label class="field">Zalo <input class="input" name="zalo" placeholder="0901234567 hoặc https://zalo.me/..."></label>
           <label class="field">Telegram <input class="input" name="telegram" placeholder="@ltbmedia hoặc https://t.me/..."></label>
-          <label class="field">Email <small>(không bắt buộc)</small><input class="input" type="email" name="email" placeholder="contact@..."></label>
+          <label class="field">Email liên hệ <small>(Business &amp; Partnerships)</small><input class="input" type="email" name="email" placeholder="contact@..."></label>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Mục <b>Liên hệ</b> cuối trang chủ — dùng Email liên hệ và Telegram ở trên. Ô nào để trống sẽ không hiện.</p>
+        <label class="field">Business Address <input class="input" name="address" placeholder="978 Nguyen Tat Thanh Street, ..."></label>
+        <label class="field">Email Copyright Department <small>(mỗi dòng một email)</small>
+          <textarea class="input" name="copyrightEmails" rows="3" placeholder="copyright@...&#10;takedown@..."></textarea></label>
+        <div class="row2">
+          <label class="field">Official Website <input class="input" name="website" placeholder="ltbmedia.net"></label>
+          <label class="field">Business Hours <input class="input" name="workingHours" placeholder="Monday – Sunday | 8:00 AM – 9:00 PM (GMT+7)"></label>
+          <label class="field">Phone <small>(không bắt buộc)</small><input class="input" type="tel" name="phone"></label>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Mạng xã hội — icon ở mục Liên hệ và chân trang. Dán link đầy đủ hoặc chỉ nhập tên trang / @handle. Để trống thì icon hiện mờ.</p>
+        <div class="row2">
+          <label class="field">Facebook <input class="input" name="facebook" placeholder="https://facebook.com/... hoặc tên trang"></label>
+          <label class="field">YouTube <input class="input" name="youtube" placeholder="https://youtube.com/@... hoặc @handle"></label>
+          <label class="field">TikTok <input class="input" name="tiktok" placeholder="https://tiktok.com/@... hoặc @handle"></label>
         </div>
         <label class="field">Link Content Monitoring
           <input class="input" type="url" name="monitoringUrl" placeholder="https://..."></label>

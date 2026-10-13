@@ -222,7 +222,7 @@ app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
 app.use((req, res) => res.status(404).sendFile(path.join(ROOT, 'public', 'index.html')));
 
 app.listen(config.port, () => {
-  console.log(`LTB Media đang chạy: http://localhost:${config.port}`);
+  console.log(`LTB Media Network đang chạy: http://localhost:${config.port}`);
   if (config.adminPassword === 'changeme') {
     console.warn('⚠  Đang dùng mật khẩu admin mặc định. Đặt biến môi trường ADMIN_PASSWORD trước khi đưa lên mạng.');
   }

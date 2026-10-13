@@ -25,9 +25,21 @@
     whatsapp: '<path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>',
     telegram: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
     zalo: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 9h4l-4 6h4"/><path d="M15 9v6"/>',
+    pin: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   };
   const icon = (name, size = 22, sw = 2) =>
     `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
+
+  // Logo mạng xã hội (dạng tô đặc, theo Simple Icons).
+  const BRAND = {
+    facebook: 'M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z',
+    youtube: 'M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z',
+    tiktok: 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z',
+  };
+  const brandIcon = (name, size = 20) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${BRAND[name]}"/></svg>`;
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -57,22 +69,70 @@
     return out;
   }
 
+  // Luôn hiện đủ 4 kênh (kể cả Email); kênh chưa nhập sẽ hiện "Đang cập nhật".
   function contactOptionsHTML(settings) {
     const links = contactLinks(settings);
-    const fallback = [
-      { key: 'whatsapp', name: 'WhatsApp' }, { key: 'zalo', name: 'Zalo' }, { key: 'telegram', name: 'Telegram' },
+    const channels = [
+      { key: 'whatsapp', name: 'WhatsApp' }, { key: 'zalo', name: 'Zalo' },
+      { key: 'telegram', name: 'Telegram' }, { key: 'mail', name: 'Email liên hệ' },
     ];
-    if (!links.length) {
-      return fallback.map((c) => `
-        <div class="option disabled"><span class="opt-icon">${icon(c.key)}</span>
-          <span class="opt-body"><strong>${c.name}</strong><span class="sub">Đang cập nhật</span></span></div>`).join('');
-    }
-    return links.map((c) => `
-      <a class="option" href="${esc(c.href)}" target="_blank" rel="noopener">
+    return channels.map((ch) => {
+      const c = links.find((l) => l.key === ch.key);
+      if (!c) {
+        return `
+        <div class="option disabled"><span class="opt-icon">${icon(ch.key)}</span>
+          <span class="opt-body"><strong>${ch.name}</strong><span class="sub">Đang cập nhật</span></span></div>`;
+      }
+      return `
+      <a class="option" href="${esc(c.href)}"${c.key === 'mail' ? '' : ' target="_blank" rel="noopener"'}>
         <span class="opt-icon">${icon(c.key)}</span>
-        <span class="opt-body"><strong>${c.name}</strong><span class="sub">${esc(c.value.replace(/^https?:\/\//, ''))}</span></span>
+        <span class="opt-body"><strong>${ch.name}</strong><span class="sub">${esc(c.value.replace(/^https?:\/\//, ''))}</span></span>
         ${icon('arrowUpRight', 18)}
-      </a>`).join('');
+      </a>`;
+    }).join('');
+  }
+
+  // Mục Liên hệ cuối trang chủ. Dòng nào admin để trống thì không hiện.
+  function contactInfoHTML(s) {
+    const link = (href, text, external) =>
+      `<a href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${esc(text)}</a>`;
+    const mail = (e) => link(`mailto:${e}`, e);
+    const group = (title, items) => `<div class="info-group"><small>${title}</small>${items}</div>`;
+    const copyright = String(s.copyrightEmails || '').split(/[\n,;]+/).map((e) => e.trim()).filter(Boolean);
+    const emails = (s.email ? group('Business &amp; Partnerships', mail(s.email)) : '')
+      + (copyright.length ? group('Copyright Department', copyright.map(mail).join('')) : '');
+    const tg = contactLinks({ telegram: s.telegram })[0];
+    const site = s.website && (/^https?:\/\//i.test(s.website) ? s.website : `https://${s.website}`);
+    const rows = [
+      { icon: 'pin', label: 'Business Address', body: s.address && link(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}`, s.address, true) },
+      { icon: 'phone', label: 'Phone', body: s.phone && link(`tel:${s.phone.replace(/[^\d+]/g, '')}`, s.phone) },
+      { icon: 'mail', label: 'Email Addresses', body: emails },
+      { icon: 'telegram', label: 'Telegram', body: tg && link(tg.href, tg.value, true) },
+      { icon: 'globe', label: 'Official Website', body: site && link(site, s.website.replace(/^https?:\/\//i, '').replace(/\/$/, ''), true) },
+      { icon: 'clock', label: 'Business Hours', body: s.workingHours && `<span>${esc(s.workingHours)}</span>` },
+    ];
+    return rows.filter((r) => r.body).map((r) =>
+      `<li>${icon(r.icon, 22, 1.8)}<div class="info-body"><strong>${r.label}</strong>${r.body}</div></li>`).join('');
+  }
+
+  // Icon Facebook / YouTube / TikTok. Admin có thể nhập link đầy đủ hoặc chỉ tên trang / @handle.
+  // Kênh chưa có link vẫn hiện icon (mờ, không bấm được) giống quy ước "Đang cập nhật".
+  function socialLinksHTML(s) {
+    const SOCIAL = [
+      { key: 'facebook', name: 'Facebook', base: 'https://www.facebook.com/' },
+      { key: 'youtube', name: 'YouTube', base: 'https://www.youtube.com/' },
+      { key: 'tiktok', name: 'TikTok', base: 'https://www.tiktok.com/' },
+    ];
+    return SOCIAL.map((c) => {
+      const v = (s[c.key] || '').trim();
+      if (!v) return `<span class="social disabled" title="${c.name} — Đang cập nhật">${brandIcon(c.key)}</span>`;
+      let href = v;
+      if (!/^https?:\/\//i.test(v)) {
+        href = /^(www\.)?[\w-]+\.(com|be)\//i.test(v) ? `https://${v}` // vd: facebook.com/ltbmedia
+          : c.base + (c.key === 'facebook' ? v.replace(/^@/, '') : '@' + v.replace(/^@/, ''));
+      }
+      return `<a class="social" href="${esc(href)}" target="_blank" rel="noopener" aria-label="${c.name}" title="${c.name}">${brandIcon(c.key)}</a>`;
+    }).join('');
   }
 
   // ---------- Layout ----------
@@ -90,9 +150,8 @@
     header.className = 'site-header';
     header.innerHTML = `
       <div class="wrap">
-        <a class="brand" href="/" aria-label="LTB Media - Trang chủ">
-          <span class="brand-mark">${icon('shield', 24)}</span>
-          <span><span class="brand-name">LTB MEDIA</span><br><span class="brand-sub">DIGITAL RIGHTS PROTECTION</span></span>
+        <a class="brand" href="/" aria-label="LTB Media Network - Trang chủ">
+          <img class="brand-logo" src="/img/logo.png" alt="LTB Media Network" width="167" height="48">
         </a>
         <nav class="nav-desktop">${NAV.map((n) => `<a href="${n.href}"${cur(n.id)}>${n.label}</a>`).join('')}</nav>
         <button class="icon-btn menu-toggle" data-open="drawer" aria-label="Mở menu">${icon('menu', 26)}</button>
@@ -104,8 +163,9 @@
     footer.className = 'site-footer';
     footer.innerHTML = `
       <div class="wrap">
-        <span>© ${new Date().getFullYear()} LTB Media · Digital Rights Protection</span>
-        <span style="display:flex;gap:18px"><a href="/images">Kho ảnh</a><a href="/audio">Kho âm thanh</a><a href="#" data-open="contact">Liên hệ</a></span>
+        <span>© ${new Date().getFullYear()} LTB Media Network · Digital Rights Protection</span>
+        <span class="footer-links"><a href="/images">Kho ảnh</a><a href="/audio">Kho âm thanh</a><a href="#" data-open="contact">Liên hệ</a>
+          <span class="social-list" data-social></span></span>
       </div>`;
   }
 
@@ -116,7 +176,7 @@
       ${NAV.map((n) => `<a class="nav-item" href="${n.href}"${cur(n.id)}>${icon(n.icon, 20)} ${n.label}</a>`).join('')}
     </aside>
     <div class="sheet" id="sheet-contact" role="dialog" aria-modal="true" aria-labelledby="sc-title">
-      <div class="sheet-head"><div><h3 id="sc-title">Đăng ký bảo vệ bản quyền</h3><p>Liên hệ trực tiếp với LTB Media qua kênh bạn muốn.</p></div>
+      <div class="sheet-head"><div><h3 id="sc-title">Đăng ký bảo vệ bản quyền</h3><p>Liên hệ trực tiếp với LTB Media Network qua kênh bạn muốn.</p></div>
         <button class="icon-btn" data-close aria-label="Đóng">${icon('x')}</button></div>
       <div class="option-list" data-contact-options></div>
     </div>
@@ -159,6 +219,8 @@
   const settingsReady = fetch('/api/settings').then((r) => r.json()).catch(() => ({}));
   settingsReady.then((s) => {
     document.querySelectorAll('[data-contact-options]').forEach((el) => { el.innerHTML = contactOptionsHTML(s); });
+    document.querySelectorAll('[data-contact-info]').forEach((el) => { el.innerHTML = contactInfoHTML(s); });
+    document.querySelectorAll('[data-social]').forEach((el) => { el.innerHTML = socialLinksHTML(s); });
   });
 
   document.addEventListener('click', async (e) => {
