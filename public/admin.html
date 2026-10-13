@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Quản trị — LTB Media</title>
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .admin { max-width: 880px; padding-top: 28px; padding-bottom: 60px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+    .login { max-width: 400px; margin: 10vh auto 0; display: grid; gap: 16px; }
+    .login h1 { margin: 0; font-size: 24px; }
+    .tabs { display: flex; gap: 6px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; overflow-x: auto; }
+    .tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border: 0; background: none; border-radius: 9px; color: var(--muted); font-weight: 600; font-size: 14px; white-space: nowrap; }
+    .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--accent); }
+    .admin-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .admin-top h1 { margin: 0; font-size: 26px; }
+    .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .seg button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font-weight: 600; }
+    .seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: rgba(255, 194, 14, .07); }
+    .form { display: grid; gap: 16px; }
+    .row2 { display: grid; gap: 16px; align-items: start; }
+    label.field { align-content: start; }
+    @media (min-width: 640px) { .row2 { grid-template-columns: 1fr 1fr; } }
+    .drop { border: 1.5px dashed #3a3a3a; border-radius: 14px; padding: 28px 16px; text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
+    .drop:hover, .drop.over { border-color: var(--accent); background: rgba(255, 194, 14, .04); }
+    .drop svg { color: var(--accent); margin: 0 auto 8px; }
+    .drop b { color: var(--text); }
+    .preview { display: grid; gap: 12px; }
+    .preview img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; background: #111; }
+    .preview audio { width: 100%; }
+    .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+    .checks li { display: flex; gap: 8px; align-items: center; }
+    .checks .ok { color: var(--ok); }
+    .checks .bad { color: var(--danger); }
+    .hint { font-size: 13px; color: var(--muted); font-weight: 400; }
+    .quick-dates { display: flex; gap: 6px; flex-wrap: wrap; }
+    .quick-dates .chip { padding: 5px 11px; font-size: 13px; }
+    .bar { height: 6px; background: #2a2a2a; border-radius: 6px; overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+    .items { display: grid; gap: 10px; }
+    .item { display: grid; grid-template-columns: 96px 1fr; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+    .item .thumb { width: 96px; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #111; display: grid; place-items: center; color: var(--accent); }
+    .item .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .item .fields { display: grid; gap: 8px; min-width: 0; }
+    .item .line { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .item .line .input { min-height: 40px; padding: 6px 10px; font-size: 14px; }
+    .item .line .input[type="text"] { flex: 1 1 200px; }
+    .item .line .input[type="date"] { width: 170px; }
+    .item .real { font-size: 12px; color: var(--dim); }
+    .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
+    .btn-danger:hover { background: rgba(255, 92, 92, .1); }
+  </style>
+</head>
+<body data-page="admin">
+  <!-- Đăng nhập -->
+  <main class="wrap" id="view-login" hidden>
+    <form class="panel login" id="login-form">
+      <div class="brand"><span class="brand-mark" data-icon="lock"></span>
+        <span><span class="brand-name">LTB MEDIA</span><br><span class="brand-sub">QUẢN TRỊ NỘI DUNG</span></span></div>
+      <label class="field">Mật khẩu
+        <input class="input" type="password" name="password" autocomplete="current-password" required autofocus></label>
+      <button class="btn btn-primary" type="submit">Đăng nhập</button>
+    </form>
+  </main>
+
+  <!-- Bảng điều khiển -->
+  <main class="wrap admin" id="view-admin" hidden>
+    <div class="admin-top">
+      <h1>Quản trị nội dung</h1>
+      <div style="display:flex;gap:8px">
+        <a class="btn btn-ghost btn-sm" href="/" target="_blank">Xem trang</a>
+        <button class="btn btn-ghost btn-sm" id="logout">Đăng xuất</button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="upload" aria-selected="true"><span data-icon="upload"></span> Tải lên</button>
+      <button role="tab" data-tab="manage" aria-selected="false"><span data-icon="image"></span> Quản lý kho</button>
+      <button role="tab" data-tab="settings" aria-selected="false"><span data-icon="settings"></span> Cài đặt</button>
+    </div>
+
+    <!-- Tải lên -->
+    <section class="panel" data-pane="upload">
+      <form class="form" id="upload-form">
+        <div class="seg" id="kind">
+          <button type="button" data-kind="image" aria-pressed="true"><span data-icon="image"></span> Hình ảnh</button>
+          <button type="button" data-kind="audio" aria-pressed="false"><span data-icon="audio"></span> Âm thanh</button>
+        </div>
+
+        <label class="drop" id="drop">
+          <span data-icon="upload" data-size="30"></span>
+          <div><b>Chọn file</b> hoặc kéo thả vào đây</div>
+          <div class="hint" id="rule"></div>
+          <input type="file" id="file" hidden>
+        </label>
+
+        <div class="preview" id="preview" hidden></div>
+
+        <div class="row2">
+          <label class="field">Tiêu đề
+            <input class="input" name="title" maxlength="200" placeholder="Để trống = dùng tên file"></label>
+          <label class="field">Ngày đăng công khai
+            <input class="input" type="date" name="publishedAt" required>
+            <span class="hint" id="date-preview"></span>
+            <span class="quick-dates" id="quick-dates"></span>
+          </label>
+        </div>
+        <label class="field">Mô tả <small>(không bắt buộc)</small>
+          <textarea class="input" name="description" maxlength="1000"></textarea></label>
+        <p class="hint" style="margin:0">Ngày đăng công khai là ngày khách xem thấy trên website. Ngày tải lên thật được hệ thống lưu riêng, chỉ hiện trong trang quản trị.</p>
+
+        <div id="progress" hidden><div class="bar"><i></i></div><p class="hint" style="margin:6px 0 0" id="progress-text"></p></div>
+        <button class="btn btn-primary" type="submit" id="submit" disabled>Tải lên</button>
+      </form>
+    </section>
+
+    <!-- Quản lý -->
+    <section class="panel" data-pane="manage" hidden>
+      <div class="toolbar" style="margin-top:0">
+        <div class="chips" id="manage-filter">
+          <button class="chip" data-f="" aria-pressed="true">Tất cả</button>
+          <button class="chip" data-f="image" aria-pressed="false">Hình ảnh</button>
+          <button class="chip" data-f="audio" aria-pressed="false">Âm thanh</button>
+        </div>
+      </div>
+      <div class="items" id="items"></div>
+    </section>
+
+    <!-- Cài đặt -->
+    <section class="panel" data-pane="settings" hidden>
+      <form class="form" id="settings-form">
+        <p class="hint" style="margin:0">Có thể nhập số điện thoại / username hoặc dán link đầy đủ. Các kênh để trống sẽ hiện "Đang cập nhật".</p>
+        <div class="row2">
+          <label class="field">WhatsApp <input class="input" name="whatsapp" placeholder="84901234567 hoặc https://wa.me/..."></label>
+          <label class="field">Zalo <input class="input" name="zalo" placeholder="0901234567 hoặc https://zalo.me/..."></label>
+          <label class="field">Telegram <input class="input" name="telegram" placeholder="@ltbmedia hoặc https://t.me/..."></label>
+          <label class="field">Email <small>(không bắt buộc)</small><input class="input" type="email" name="email" placeholder="contact@..."></label>
+        </div>
+        <label class="field">Link Content Monitoring
+          <input class="input" type="url" name="monitoringUrl" placeholder="https://..."></label>
+        <button class="btn btn-primary" type="submit">Lưu cài đặt</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
