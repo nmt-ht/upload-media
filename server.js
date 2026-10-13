@@ -8,11 +8,13 @@ const config = require('./config');
 require('./lib/seed-demo'); // phải chạy trước khi lib/db đọc dữ liệu
 const db = require('./lib/db');
 const imageSize = require('./lib/image-size');
+const audioInfo = require('./lib/audio-info');
 
 const app = express();
 const ROOT = __dirname;
-const UPLOAD_DIR = path.join(ROOT, 'uploads');
-const TMP_DIR = path.join(ROOT, '.tmp');
+// .tmp nằm cùng ổ đĩa với uploads để rename() không lỗi khi STORAGE_DIR là ổ gắn ngoài.
+const UPLOAD_DIR = path.join(config.storageDir, 'uploads');
+const TMP_DIR = path.join(config.storageDir, '.tmp');
 fs.mkdirSync(TMP_DIR, { recursive: true });
 for (const dir of ['images', 'audio']) fs.mkdirSync(path.join(UPLOAD_DIR, dir), { recursive: true });
 
@@ -77,7 +79,7 @@ app.get('/api/admin/me', (req, res) => res.json({ admin: isAdmin(req) }));
 // ---------- Public API ----------
 function publicItem(m) {
   const { uploadedAt, originalName, ...rest } = m;
-  return rest;
+  return { ...COPYRIGHT_DEFAULTS, ...rest };
 }
 function sorted(list) {
   return [...list].sort((a, b) =>
@@ -93,7 +95,7 @@ app.get('/api/media', (req, res) => {
 });
 
 // ---------- Admin API ----------
-app.get('/api/admin/media', requireAdmin, (req, res) => res.json(sorted(db.media)));
+app.get('/api/admin/media', requireAdmin, (req, res) => res.json(sorted(db.media).map((m) => ({ ...COPYRIGHT_DEFAULTS, ...m }))));
 
 const EXT = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
@@ -106,7 +108,7 @@ function uploader(kind) {
   const rules = config[kind];
   return multer({
     dest: TMP_DIR,
-    limits: { fileSize: rules.maxBytes, files: 1, fields: 10 },
+    limits: { fileSize: rules.maxBytes, files: 1, fields: 20 },
     fileFilter: (req, file, cb) => {
       if (rules.mimes.includes(file.mimetype)) return cb(null, true);
       const err = new Error(`Định dạng ${file.mimetype} không được hỗ trợ`);
@@ -121,6 +123,32 @@ function validDate(s) {
   const d = new Date(s + 'T00:00:00Z');
   return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
 }
+// Thông tin bản quyền của từng mục (admin tự nhập). Trả về { patch } hoặc { error }.
+// Ảnh dùng owner; âm thanh dùng workTitle, composer, performer, recordingOwner, audioSpec.
+// protectionDate: ảnh hiện là "Protection Date", âm thanh hiện là "Date Recorded".
+const COPYRIGHT_TEXT = ['owner', 'provider', 'evidenceId', 'workTitle', 'composer', 'performer', 'recordingOwner', 'audioSpec'];
+const VERIFICATION = ['pending', 'verified'];
+function copyrightPatch(body) {
+  const patch = {};
+  for (const k of COPYRIGHT_TEXT) if (typeof body[k] === 'string') patch[k] = body[k].trim().slice(0, 200);
+  if (body.protectionDate !== undefined) {
+    if (body.protectionDate !== '' && !validDate(body.protectionDate)) return { error: 'Protection Date không hợp lệ' };
+    patch.protectionDate = body.protectionDate;
+  }
+  if (body.verification !== undefined) {
+    if (!VERIFICATION.includes(body.verification)) return { error: 'Verification Status không hợp lệ' };
+    patch.verification = body.verification;
+  }
+  // multipart gửi chuỗi 'true'/'false', JSON gửi boolean
+  for (const k of ['protected', 'active']) if (body[k] !== undefined) patch[k] = body[k] === true || body[k] === 'true';
+  return { patch };
+}
+const COPYRIGHT_DEFAULTS = {
+  owner: '', provider: 'LTB Media Network', protectionDate: '', evidenceId: '',
+  verification: 'pending', protected: true, active: true,
+  workTitle: '', composer: '', performer: '', recordingOwner: '', audioSpec: '',
+};
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -145,6 +173,8 @@ for (const kind of ['image', 'audio']) {
 
       const publishedAt = req.body.publishedAt || today();
       if (!validDate(publishedAt)) return fail(400, 'Ngày đăng không hợp lệ');
+      const copyright = copyrightPatch(req.body);
+      if (copyright.error) return fail(400, copyright.error);
 
       const item = {
         id: crypto.randomBytes(8).toString('hex'),
@@ -156,6 +186,8 @@ for (const kind of ['image', 'audio']) {
         originalName: req.file.originalname,
         publishedAt,                       // ngày hiển thị công khai (tuỳ chọn)
         uploadedAt: new Date().toISOString(), // ngày tải lên thật — chỉ admin thấy
+        ...COPYRIGHT_DEFAULTS,
+        ...copyright.patch,
       };
 
       if (kind === 'image') {
@@ -174,13 +206,28 @@ for (const kind of ['image', 'audio']) {
           return fail(400, `Audio phải dài ${minDuration}–${maxDuration}s (file đang ${duration.toFixed(1)}s)`);
         }
         item.duration = Math.round(duration * 10) / 10;
+        // Thông số tự đọc từ file; admin nhập tay thì giữ giá trị admin.
+        if (!item.audioSpec) item.audioSpec = audioInfo(tmp);
+        if (!item.workTitle) item.workTitle = item.title;
       }
 
       const folder = kind === 'image' ? 'images' : 'audio';
       const filename = item.id + (EXT[item.mime] || path.extname(req.file.originalname));
-      await fs.promises.rename(tmp, path.join(UPLOAD_DIR, folder, filename));
+      const dest = path.join(UPLOAD_DIR, folder, filename);
+      try {
+        await fs.promises.rename(tmp, dest);
+      } catch (e) {
+        console.error('Lưu file thất bại:', e);
+        return fail(500, 'Không lưu được file, vui lòng thử lại');
+      }
       item.url = `/uploads/${folder}/${filename}`;
-      await db.addMedia(item);
+      try {
+        await db.addMedia(item);
+      } catch (e) {
+        // Mục đã nằm trong bộ nhớ và sẽ được ghi ở lần lưu kế tiếp — giữ nguyên file.
+        console.error('Ghi db.json thất bại:', e);
+        return res.status(500).json({ error: 'Đã nhận file nhưng chưa ghi được dữ liệu, vui lòng kiểm tra ổ đĩa máy chủ' });
+      }
       res.status(201).json(item);
     });
   });
@@ -195,6 +242,9 @@ app.patch('/api/admin/media/:id', requireAdmin, async (req, res) => {
     if (!validDate(publishedAt)) return res.status(400).json({ error: 'Ngày đăng không hợp lệ' });
     patch.publishedAt = publishedAt;
   }
+  const copyright = copyrightPatch(req.body || {});
+  if (copyright.error) return res.status(400).json({ error: copyright.error });
+  Object.assign(patch, copyright.patch);
   const item = await db.updateMedia(req.params.id, patch);
   if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
   res.json(item);
@@ -203,7 +253,7 @@ app.patch('/api/admin/media/:id', requireAdmin, async (req, res) => {
 app.delete('/api/admin/media/:id', requireAdmin, async (req, res) => {
   const item = await db.removeMedia(req.params.id);
   if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
-  fs.rm(path.join(ROOT, item.url), { force: true }, () => {});
+  fs.rm(path.join(config.storageDir, item.url), { force: true }, () => {});
   res.json({ ok: true });
 });
 

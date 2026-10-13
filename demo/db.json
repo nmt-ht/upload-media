@@ -27,7 +27,14 @@
       "uploadedAt": "2026-10-13T08:44:56.996Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/a44af72f19619a63.png"
+      "url": "/uploads/images/a44af72f19619a63.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2022-000001",
+      "provider": "LTB Media Network",
+      "protectionDate": "2022-03-15",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "aae563c9aeb6c241",
@@ -41,7 +48,14 @@
       "uploadedAt": "2026-10-13T08:44:57.004Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/aae563c9aeb6c241.png"
+      "url": "/uploads/images/aae563c9aeb6c241.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2023-000003",
+      "provider": "LTB Media Network",
+      "protectionDate": "2023-07-02",
+      "verification": "pending",
+      "protected": true,
+      "active": true
     },
     {
       "id": "bdd3dc6a16315ce9",
@@ -55,7 +69,14 @@
       "uploadedAt": "2026-10-13T08:44:57.010Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/bdd3dc6a16315ce9.png"
+      "url": "/uploads/images/bdd3dc6a16315ce9.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2025-000006",
+      "provider": "LTB Media Network",
+      "protectionDate": "2025-11-20",
+      "verification": "pending",
+      "protected": true,
+      "active": true
     },
     {
       "id": "4b96684e532e01b9",
@@ -68,7 +89,18 @@
       "publishedAt": "2023-05-10",
       "uploadedAt": "2026-10-13T08:44:57.019Z",
       "duration": 12,
-      "url": "/uploads/audio/4b96684e532e01b9.wav"
+      "url": "/uploads/audio/4b96684e532e01b9.wav",
+      "workTitle": "Piano Intro",
+      "composer": "LTB Media Network",
+      "performer": "",
+      "recordingOwner": "LTB Media Network",
+      "audioSpec": "22.05 kHz / 16-bit",
+      "evidenceId": "LTB-AUD-2023-000002",
+      "provider": "LTB Media Network",
+      "protectionDate": "2023-05-10",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "16cbe5969b616cfe",
@@ -81,7 +113,18 @@
       "publishedAt": "2022-01-08",
       "uploadedAt": "2026-10-13T08:44:57.028Z",
       "duration": 10.5,
-      "url": "/uploads/audio/16cbe5969b616cfe.wav"
+      "url": "/uploads/audio/16cbe5969b616cfe.wav",
+      "workTitle": "Logo Sting",
+      "composer": "LTB Media Network",
+      "performer": "",
+      "recordingOwner": "LTB Media Network",
+      "audioSpec": "22.05 kHz / 16-bit",
+      "evidenceId": "LTB-AUD-2022-000001",
+      "provider": "LTB Media Network",
+      "protectionDate": "2022-01-08",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "1e4a8f95d9311e6d",
@@ -95,7 +138,14 @@
       "uploadedAt": "2026-10-13T09:02:12.472Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/1e4a8f95d9311e6d.png"
+      "url": "/uploads/images/1e4a8f95d9311e6d.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2024-000005",
+      "provider": "LTB Media Network",
+      "protectionDate": "2024-06-18",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "b6224b40d266d01f",
@@ -109,7 +159,14 @@
       "uploadedAt": "2026-10-13T09:02:12.478Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/b6224b40d266d01f.png"
+      "url": "/uploads/images/b6224b40d266d01f.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2023-000004",
+      "provider": "LTB Media Network",
+      "protectionDate": "2023-12-01",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "c6241a33cc3cdcea",
@@ -123,7 +180,14 @@
       "uploadedAt": "2026-10-13T09:02:12.485Z",
       "width": 1920,
       "height": 1080,
-      "url": "/uploads/images/c6241a33cc3cdcea.png"
+      "url": "/uploads/images/c6241a33cc3cdcea.png",
+      "owner": "LTB Media Network",
+      "evidenceId": "LTB-IMG-2022-000002",
+      "provider": "LTB Media Network",
+      "protectionDate": "2022-09-09",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "ab1b9dc73b02e6f3",
@@ -136,7 +200,18 @@
       "publishedAt": "2024-02-14",
       "uploadedAt": "2026-10-13T09:02:12.493Z",
       "duration": 14,
-      "url": "/uploads/audio/ab1b9dc73b02e6f3.wav"
+      "url": "/uploads/audio/ab1b9dc73b02e6f3.wav",
+      "workTitle": "Corporate Pulse",
+      "composer": "LTB Media Network",
+      "performer": "",
+      "recordingOwner": "LTB Media Network",
+      "audioSpec": "22.05 kHz / 16-bit",
+      "evidenceId": "LTB-AUD-2024-000004",
+      "provider": "LTB Media Network",
+      "protectionDate": "2024-02-14",
+      "verification": "verified",
+      "protected": true,
+      "active": true
     },
     {
       "id": "e38e067ac766ef3f",
@@ -149,7 +224,18 @@
       "publishedAt": "2023-08-21",
       "uploadedAt": "2026-10-13T09:02:12.502Z",
       "duration": 10,
-      "url": "/uploads/audio/e38e067ac766ef3f.wav"
+      "url": "/uploads/audio/e38e067ac766ef3f.wav",
+      "workTitle": "Notification Chime",
+      "composer": "LTB Media Network",
+      "performer": "",
+      "recordingOwner": "LTB Media Network",
+      "audioSpec": "22.05 kHz / 16-bit",
+      "evidenceId": "LTB-AUD-2023-000003",
+      "provider": "LTB Media Network",
+      "protectionDate": "2023-08-21",
+      "verification": "pending",
+      "protected": true,
+      "active": true
     }
   ]
 }

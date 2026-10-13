@@ -27,6 +27,14 @@
     zalo: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 9h4l-4 6h4"/><path d="M15 9v6"/>',
     pin: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+    calendarCheck: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+    fingerprint: '<path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>',
+    fileCheck: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+    disc: '<circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   };
   const icon = (name, size = 22, sw = 2) =>
@@ -47,6 +55,12 @@
     if (!iso) return '';
     const [y, m, d] = iso.slice(0, 10).split('-');
     return `${d}/${m}/${y}`;
+  }
+  // "20 Nov 2025" — dùng trong khung Copyright Information.
+  function fmtDateEn(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+    return `${d} ${'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[m - 1]} ${y}`;
   }
   function fmtDuration(s) {
     s = Math.max(0, Math.round(s || 0));
@@ -238,5 +252,5 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
   document.querySelectorAll('.drawer a').forEach((a) => a.addEventListener('click', closeAll));
 
-  window.LTB = { icon, esc, fmtDate, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML };
+  window.LTB = { icon, esc, fmtDate, fmtDateEn, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML };
 })();

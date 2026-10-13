@@ -11,3 +11,17 @@ services:
         value: "22"
       - key: ADMIN_PASSWORD
         generateValue: true
+
+# ⚠ Gói Free KHÔNG giữ dữ liệu: ổ đĩa bị xoá mỗi lần server khởi động lại / ngủ dậy.
+# Để giữ ảnh, âm thanh và cài đặt cho đến khi admin tự xoá, đổi sang gói trả phí có ổ đĩa:
+#   1. Đổi `plan: free` ở trên thành `plan: starter`
+#   2. Bỏ dấu # ở các dòng dưới đây, dán vào trong service ltb-media (cùng cấp với envVars)
+#    disk:
+#      name: ltb-data
+#      mountPath: /var/data
+#      sizeGB: 10
+#   3. Thêm vào envVars:
+#      - key: STORAGE_DIR
+#        value: /var/data
+#      - key: DEMO_SEED
+#        value: "false"

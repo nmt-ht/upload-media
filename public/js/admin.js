@@ -39,6 +39,42 @@
     if (b.dataset.tab === 'manage') loadItems();
   });
 
+  // ---------- Thông tin bản quyền (khung Copyright Information ngoài trang) ----------
+  const COPYRIGHT_KEYS = ['owner', 'provider', 'protectionDate', 'evidenceId', 'verification', 'protected', 'active',
+    'workTitle', 'composer', 'performer', 'recordingOwner', 'audioSpec'];
+  const NEW_COPYRIGHT = { provider: 'LTB Media Network' };
+
+  function copyrightFieldsHTML(type, m = {}) {
+    const v = (k) => esc(m[k] ?? '');
+    const text = (name, label, ph = '') =>
+      `<label class="field">${label}<input class="input" name="${name}" value="${v(name)}" placeholder="${esc(ph)}" maxlength="200"></label>`;
+    const date = (label) =>
+      `<label class="field">${label}<input class="input" type="date" name="protectionDate" value="${v('protectionDate')}"></label>`;
+    const select = (name, label, opts, cur) => `<label class="field">${label}<select class="input" name="${name}">${
+      opts.map(([val, t]) => `<option value="${val}"${String(cur) === val ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    const provider = text('provider', 'Protection Provider', 'LTB Media Network');
+    const evidence = text('evidenceId', 'Evidence ID', type === 'image' ? 'LTB-IMG-2026-000001' : 'LTB-AUD-2026-000001');
+    const verification = select('verification', 'Verification Status',
+      [['pending', 'Pending Verification'], ['verified', 'Verified']], m.verification || 'pending');
+    const prot = select('protected', 'Nhãn bảo hộ', [['true', 'Protected'], ['false', 'Not Protected']], m.protected ?? true);
+    const fields = type === 'image' ? [
+      text('owner', 'Author / Copyright Owner'), provider, date('Protection Date'), evidence, verification, prot,
+      select('active', 'Trạng thái', [['true', 'Active'], ['false', 'Inactive']], m.active ?? true),
+    ] : [
+      text('workTitle', 'Work Title', 'Để trống = dùng tiêu đề'), text('composer', 'Composer / Author'),
+      text('performer', 'Performing Artist'), text('recordingOwner', 'Sound Recording Owner'),
+      provider, evidence, date('Date Recorded'),
+      text('audioSpec', 'Thông số (vd 48 kHz / 24-bit)', 'Để trống = tự đọc từ file'),
+      verification, prot,
+    ];
+    return `<div class="row2">${fields.join('')}</div>`;
+  }
+  function readCopyright(el) {
+    const out = {};
+    for (const k of COPYRIGHT_KEYS) { const f = $(`[name="${k}"]`, el); if (f) out[k] = f.value; }
+    return out;
+  }
+
   // ---------- Tải lên ----------
   let limits = null;
   let kind = 'image';
@@ -81,6 +117,7 @@
     $$('#kind [data-kind]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.kind === k));
     fileInput.accept = k === 'image' ? 'image/jpeg,image/png,image/webp' : 'audio/*';
     $('#rule').textContent = ruleText();
+    $('#upload-copyright').innerHTML = copyrightFieldsHTML(k, NEW_COPYRIGHT);
     clearPicked();
   }
   $('#kind').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) setKind(b.dataset.kind); });
@@ -149,6 +186,7 @@
     fd.append('description', form.description.value);
     fd.append('publishedAt', form.publishedAt.value);
     if (picked.duration) fd.append('duration', picked.duration);
+    for (const [k, v] of Object.entries(readCopyright($('#upload-copyright')))) fd.append(k, v);
     fd.append('file', picked.file);
 
     const xhr = new XMLHttpRequest();
@@ -172,6 +210,7 @@
       toast(`Đã đăng "${data.title}" — ngày hiển thị ${fmtDate(data.publishedAt)}`);
       form.title.value = '';
       form.description.value = '';
+      $('#upload-copyright').innerHTML = copyrightFieldsHTML(kind, NEW_COPYRIGHT);
       clearPicked();
     };
     xhr.onerror = () => { $('#progress').hidden = true; $('#submit').disabled = false; toast('Mất kết nối khi tải lên', true); };
@@ -203,6 +242,7 @@
               <button class="btn btn-danger btn-sm" data-del aria-label="Xoá">${icon('trash', 16)}</button>
             </span>
           </div>
+          <details class="cr-edit"><summary>Thông tin bản quyền</summary>${copyrightFieldsHTML(m.type, m)}</details>
         </div>
       </div>`).join('');
   }
@@ -221,7 +261,7 @@
       if (e.target.closest('[data-save]')) {
         const updated = await api(`/api/admin/media/${id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ title: $('[name=title]', row).value, publishedAt: $('[name=publishedAt]', row).value }),
+          body: JSON.stringify({ title: $('[name=title]', row).value, publishedAt: $('[name=publishedAt]', row).value, ...readCopyright(row) }),
         });
         Object.assign(items.find((m) => m.id === id), updated);
         toast('Đã lưu');

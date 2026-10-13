@@ -54,6 +54,14 @@
     .item .line .input[type="text"] { flex: 1 1 200px; }
     .item .line .input[type="date"] { width: 170px; }
     .item .real { font-size: 12px; color: var(--dim); }
+    .cr-fields { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; margin: 0; }
+    .cr-fields legend { padding: 0 6px; font-weight: 600; font-size: 14px; }
+    .cr-fields legend small { font-weight: 400; color: var(--muted); }
+    .cr-edit summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); padding: 4px 0; }
+    .cr-edit[open] summary { margin-bottom: 10px; }
+    .cr-edit .row2 { gap: 10px; }
+    .cr-edit .field { font-size: 13px; }
+    .cr-edit .input { min-height: 40px; padding: 6px 10px; font-size: 14px; }
     .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
     .btn-danger:hover { background: rgba(255, 92, 92, .1); }
   </style>
@@ -114,6 +122,8 @@
         </div>
         <label class="field">Mô tả <small>(không bắt buộc)</small>
           <textarea class="input" name="description" maxlength="1000"></textarea></label>
+        <fieldset class="cr-fields"><legend>Thông tin bản quyền <small>— hiện trong khung Copyright Information</small></legend>
+          <div id="upload-copyright"></div></fieldset>
         <p class="hint" style="margin:0">Ngày đăng công khai là ngày khách xem thấy trên website. Ngày tải lên thật được hệ thống lưu riêng, chỉ hiện trong trang quản trị.</p>
 
         <div id="progress" hidden><div class="bar"><i></i></div><p class="hint" style="margin:6px 0 0" id="progress-text"></p></div>

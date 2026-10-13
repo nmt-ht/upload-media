@@ -45,10 +45,29 @@ Server kiểm tra lại định dạng, dung lượng, kích thước ảnh và 
 
 ## Dữ liệu
 
+Tất cả nằm trong thư mục `STORAGE_DIR` (mặc định: thư mục dự án):
+
 - `data/db.json` — danh sách nội dung + cài đặt liên hệ
 - `uploads/images`, `uploads/audio` — file đã tải lên
+- `.tmp/` — file đang tải lên dở, xoá thoải mái
 
-Sao lưu 2 thư mục này là đủ. Xoá cả hai để làm trống website (dữ liệu demo hiện tại chỉ là ảnh gradient và âm thanh test).
+Nội dung chỉ bị xoá khi admin bấm Xoá trong trang quản trị — không có cơ chế tự xoá hay giới hạn số lượng.
+Điều kiện duy nhất: `STORAGE_DIR` phải nằm trên ổ đĩa không bị xoá khi server khởi động lại (VPS, hoặc Render gói trả phí có Persistent Disk — xem `render.yaml`).
+Nếu `db.json` bị hỏng, server sẽ dừng và báo lỗi thay vì tạo dữ liệu rỗng đè lên — khôi phục từ bản sao lưu rồi chạy lại.
+
+Sao lưu `data/` và `uploads/` là đủ (nên sao lưu định kỳ). Xoá cả hai để làm trống website (dữ liệu demo hiện tại chỉ là ảnh gradient và âm thanh test).
+
+### Có thể tải lên bao nhiêu file?
+
+Không giới hạn số lượng trong code; giới hạn thực tế là dung lượng ổ đĩa. Ước tính cho mỗi 1 GB:
+
+| Loại | Dung lượng mỗi file | Số file / 1 GB |
+|---|---|---|
+| Ảnh 1920×1080 | tối đa 360 KB | ~2.900 |
+| Âm thanh MP3 10–15 giây | ~0,2–0,6 MB | ~1.700–5.000 |
+| Âm thanh WAV 10–15 giây | ~1,7–2,6 MB | ~400–600 |
+
+Trang kho ảnh / âm thanh hiện tải toàn bộ danh sách một lần, chạy mượt tới khoảng vài nghìn file mỗi loại; nhiều hơn nên thêm phân trang.
 
 ## Demo miễn phí trên Render.com
 
@@ -58,12 +77,12 @@ File `render.yaml` đã cấu hình sẵn (gói Free, mật khẩu admin do Rend
 2. Vào https://dashboard.render.com → **New → Blueprint** → chọn repo → **Apply**.
 3. Xem mật khẩu admin: service `ltb-media` → **Environment** → `ADMIN_PASSWORD`.
 
-Lưu ý gói Free: server ngủ sau 15 phút không có truy cập (lần mở đầu chờ ~1 phút); ổ đĩa bị xoá mỗi lần khởi động lại nên nội dung tải lên thêm sẽ mất, website quay về dữ liệu demo trong `demo/`. Khi chạy thật, dùng VPS bên dưới (hoặc gói trả phí có Persistent Disk) và đặt `DEMO_SEED=false`.
+⚠ Lưu ý gói Free: server ngủ sau 15 phút không có truy cập (lần mở đầu chờ ~1 phút); ổ đĩa bị xoá mỗi lần khởi động lại nên **nội dung tải lên thêm sẽ mất**, website quay về dữ liệu demo trong `demo/`. Khi chạy thật, dùng VPS bên dưới hoặc gói Render trả phí có Persistent Disk (các bước có sẵn ở cuối `render.yaml`: `plan: starter`, `disk` gắn ở `/var/data`, `STORAGE_DIR=/var/data`, `DEMO_SEED=false`).
 
 ## Đưa lên máy chủ (VPS)
 
 1. Copy thư mục lên server, chạy `npm install --omit=dev`.
-2. Tạo `.env` với `ADMIN_PASSWORD` mạnh.
+2. Tạo `.env` với `ADMIN_PASSWORD` mạnh và `DEMO_SEED=false` (không nạp dữ liệu demo vào web thật). Nếu muốn để dữ liệu ngoài thư mục code (dễ cập nhật code, dễ sao lưu), thêm `STORAGE_DIR=/var/lib/ltb-media`.
 3. Chạy nền bằng pm2: `pm2 start npm --name ltb-media -- start`.
 4. Đặt Nginx phía trước + HTTPS (Let's Encrypt). **Nhớ tăng giới hạn upload** vì audio cho phép tới 300 MB:
 

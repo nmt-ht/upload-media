@@ -1,6 +1,6 @@
 // Hiển thị kho ảnh / kho âm thanh (dùng ở trang chủ và các trang kho).
 (function () {
-  const { icon, esc, fmtDate, fmtDuration } = LTB;
+  const { icon, esc, fmtDate, fmtDateEn, fmtDuration } = LTB;
 
   function emptyHTML(kind) {
     return `<div class="empty" style="grid-column:1/-1">${icon(kind === 'image' ? 'image' : 'audio', 36, 1.5)}
@@ -14,36 +14,89 @@
       <button class="tile" data-i="${i}">
         <div class="thumb">
           <img src="${esc(m.url)}" alt="${esc(m.title)}" loading="lazy" draggable="false">
-          <span class="badge-protected">${icon('shield', 12, 2.5)} Protected</span>
+          ${m.protected === false ? '' : `<span class="badge-protected">${icon('shield', 12, 2.5)} Protected</span>`}
         </div>
         <div class="meta"><strong>${esc(m.title)}</strong>
           <span class="date">${icon('calendar', 14)} ${fmtDate(m.publishedAt)}</span></div>
       </button>`).join('');
     el.onclick = (e) => {
       const tile = e.target.closest('.tile');
-      if (tile) openLightbox(list[Number(tile.dataset.i)]);
+      if (tile) openDetails(list[Number(tile.dataset.i)]);
     };
   }
 
-  function openLightbox(m) {
+  // ---------- Chi tiết + Copyright Information (admin nhập ở trang quản trị) ----------
+  function copyrightHTML(m) {
+    const pending = '<span class="cr-empty">Đang cập nhật</span>';
+    const val = (v) => (v ? esc(v) : pending);
+    const verified = m.verification === 'verified';
+    const isImage = m.type === 'image';
+    const date = m.protectionDate ? fmtDateEn(m.protectionDate) : pending;
+    const verification = ['fileCheck', 'Verification Status',
+      `<span class="cr-verify${verified ? ' ok' : ''}">${verified ? 'Verified' : 'Pending Verification'}</span>`];
+    const rows = isImage ? [
+      ['user', 'Author / Copyright Owner', val(m.owner)],
+      ['shield', 'Protection Provider', val(m.provider)],
+      ['calendarCheck', 'Protection Date', date],
+      ['fingerprint', 'Evidence ID', val(m.evidenceId)],
+      verification,
+    ] : [
+      ['music', 'Work Title', val(m.workTitle || m.title)],
+      ['user', 'Composer / Author', val(m.composer)],
+      ['mic', 'Performing Artist', val(m.performer)],
+      ['disc', 'Sound Recording Owner', val(m.recordingOwner)],
+      ['shield', 'Protection Provider', val(m.provider)],
+      ['fingerprint', 'Evidence ID', val(m.evidenceId)],
+      ['calendar', 'Date Recorded', date],
+      verification,
+    ];
+    // Ảnh: "1920 × 1080 px · Published 20 Nov 2025". Âm thanh: "Audio · WAV · 48 kHz / 24-bit".
+    const format = (m.url.match(/\.(\w+)$/) || [])[1]?.toUpperCase();
+    const meta = isImage
+      ? `${m.width} × ${m.height} px · Published ${fmtDateEn(m.publishedAt)}`
+      : ['Audio', format, m.audioSpec].filter(Boolean).join(' · ');
+    return `
+      <div class="cr-head">
+        <div class="cr-thumb${isImage ? '' : ' audio'}">${isImage
+          ? `<img src="${esc(m.url)}" alt="" draggable="false">` : icon('music', 34, 2)}</div>
+        <div class="cr-title">
+          <h3>${esc(m.title)}</h3>
+          <p>${esc(meta)}</p>
+          <div class="cr-badges">
+            <span class="pill${m.protected ? ' pill-ok' : ''}">${m.protected ? 'Protected' : 'Not Protected'}</span>
+            <span class="pill">${isImage ? (m.active ? 'Active' : 'Inactive') : 'Audio Asset'}</span>
+          </div>
+        </div>
+      </div>
+      ${m.type === 'audio' ? `<audio class="cr-audio" controls controlslist="nodownload" preload="none" src="${esc(m.url)}"></audio>` : ''}
+      ${m.description ? `<p class="cr-desc">${esc(m.description)}</p>` : ''}
+      <h4 class="cr-heading">Copyright Information</h4>
+      <ul class="cr-list">${rows.map(([ic, label, v]) =>
+        `<li>${icon(ic, 20, 1.8)}<div><strong>${label}</strong><span>${v}</span></div></li>`).join('')}</ul>
+      <button class="btn btn-primary btn-sm cr-cta" data-license>${icon('shield', 16)} Liên hệ cấp phép</button>`;
+  }
+
+  // Ảnh: xem lớn + khung thông tin bên cạnh (dưới trên điện thoại). Âm thanh: chỉ khung thông tin.
+  function openDetails(m) {
     const box = document.createElement('div');
-    box.className = 'lightbox';
+    box.className = 'lightbox' + (m.type === 'image' ? ' has-media' : '');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', m.title);
     box.innerHTML = `
-      <div class="lightbox-top"><button class="icon-btn" aria-label="Đóng">${icon('x', 26)}</button></div>
-      <div class="lightbox-body"><img src="${esc(m.url)}" alt="${esc(m.title)}" draggable="false"></div>
-      <div class="lightbox-info">
-        <div><h3>${esc(m.title)}</h3>
-          <p>${m.description ? esc(m.description) + ' · ' : ''}${m.width}×${m.height}px · Đăng ngày ${fmtDate(m.publishedAt)}</p></div>
-        <button class="btn btn-primary btn-sm" data-license>${icon('shield', 16)} Liên hệ cấp phép</button>
+      <div class="lightbox-top"><button class="icon-btn" data-close-box aria-label="Đóng">${icon('x', 26)}</button></div>
+      <div class="details">
+        ${m.type === 'image' ? `<div class="lightbox-body"><img src="${esc(m.url)}" alt="${esc(m.title)}" draggable="false"></div>` : ''}
+        <aside class="cr-card">${copyrightHTML(m)}</aside>
       </div>`;
     const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     box.addEventListener('click', (e) => {
       if (e.target.closest('[data-license]')) { close(); LTB.open('contact'); return; }
-      if (e.target === box || e.target.closest('.icon-btn') || e.target.classList.contains('lightbox-body')) close();
+      if (e.target.closest('[data-close-box]') || e.target === box
+        || e.target.classList.contains('details') || e.target.classList.contains('lightbox-body')) close();
     });
+    box.querySelector('.cr-audio')?.addEventListener('play', () => player.pause());
     document.addEventListener('keydown', onKey);
     document.body.appendChild(box);
   }
@@ -84,13 +137,16 @@
       <div class="track" data-i="${i}">
         <button class="play" aria-label="Phát">${icon('play', 20)}</button>
         <div class="info">
-          <strong>${esc(m.title)}</strong>
+          <strong data-info>${esc(m.title)}</strong>
           <div class="sub"><span class="date">${icon('calendar', 14)} ${fmtDate(m.publishedAt)}</span>
             ${m.description ? `<span class="muted" style="font-size:13px">${esc(m.description)}</span>` : ''}</div>
           <div class="progress"><i></i></div>
         </div>
         <span class="dur">${fmtDuration(m.duration)}</span>
-        <button class="btn btn-ghost btn-sm license" data-license>Cấp phép</button>
+        <div class="track-actions">
+          <button class="btn btn-ghost btn-sm" data-info>${icon('info', 16)} Copyright</button>
+          <button class="btn btn-ghost btn-sm" data-license>Cấp phép</button>
+        </div>
       </div>`).join('');
 
     el.onclick = (e) => {
@@ -98,6 +154,7 @@
       if (!row) return;
       if (e.target.closest('[data-license]')) { LTB.open('contact'); return; }
       const item = list[Number(row.dataset.i)];
+      if (e.target.closest('[data-info]')) { openDetails(item); return; }
 
       const bar = e.target.closest('.progress');
       if (bar && current?.row === row && player.duration) {

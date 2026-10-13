@@ -1,10 +1,14 @@
 // Giới hạn upload — chỉnh tại đây nếu khách hàng đổi yêu cầu.
+const path = require('path');
 const KB = 1024;
 const MB = 1024 * KB;
 
 module.exports = {
   port: Number(process.env.PORT) || 3000,
   adminPassword: process.env.ADMIN_PASSWORD || 'changeme',
+  // Thư mục chứa data/, uploads/, .tmp/. Khi chạy thật phải trỏ vào ổ đĩa lưu lâu dài
+  // (vd: Render Persistent Disk /var/data) — nếu không, dữ liệu mất mỗi lần server khởi động lại.
+  storageDir: path.resolve(process.env.STORAGE_DIR || __dirname),
 
   image: {
     maxBytes: 360 * KB,
