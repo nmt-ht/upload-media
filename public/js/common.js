@@ -237,6 +237,18 @@
     document.querySelectorAll('[data-social]').forEach((el) => { el.innerHTML = socialLinksHTML(s); });
   });
 
+  // Hàng link chính sách (dưới Follow Us, và trên trang /policy/...)
+  const policyLists = document.querySelectorAll('[data-policies]');
+  if (policyLists.length) {
+    fetch('/api/policies').then((r) => r.json()).then((list) => {
+      const html = list.map((p) => {
+        const href = `/policy/${encodeURIComponent(p.slug)}`;
+        return `<a href="${href}"${location.pathname === href ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`;
+      }).join('');
+      policyLists.forEach((el) => { el.innerHTML = html; });
+    }).catch(() => {});
+  }
+
   document.addEventListener('click', async (e) => {
     const opener = e.target.closest('[data-open]');
     if (opener) { e.preventDefault(); open(opener.dataset.open); return; }

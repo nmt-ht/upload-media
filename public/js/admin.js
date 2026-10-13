@@ -18,7 +18,7 @@
 
   // ---------- Đăng nhập ----------
   function showLogin() { $('#view-login').hidden = false; $('#view-admin').hidden = true; }
-  function showAdmin() { $('#view-login').hidden = true; $('#view-admin').hidden = false; loadItems(); loadSettings(); }
+  function showAdmin() { $('#view-login').hidden = true; $('#view-admin').hidden = false; loadItems(); loadSettings(); loadPolicies(); }
 
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -273,6 +273,52 @@
         drawItems();
         toast('Đã xoá');
       }
+    } catch (err) { toast(err.message, true); }
+  });
+
+  // ---------- Chính sách ----------
+  const policyStatus = (p) => (p.content.trim() ? `Cập nhật ${fmtDate(p.updatedAt)}` : 'Chưa có nội dung');
+  async function loadPolicies() {
+    try {
+      const list = await api('/api/admin/policies');
+      $('#policy-editors').innerHTML = list.map((p) => `
+        <details class="policy-editor" data-slug="${esc(p.slug)}">
+          <summary><span>${esc(p.title)}</span><small>${policyStatus(p)}</small></summary>
+          <form>
+            <label class="field">Tiêu đề <input class="input" name="title" value="${esc(p.title)}" maxlength="200" required></label>
+            <div class="row3">
+              <label class="field">Effective Date <input class="input" type="date" name="effectiveDate" value="${esc(p.effectiveDate)}"></label>
+              <label class="field">Last Updated <input class="input" type="date" name="updatedAt" value="${esc(p.updatedAt)}"
+                data-saved="${esc(p.updatedAt)}" title="Tự đổi thành hôm nay khi sửa nội dung, trừ khi bạn chọn ngày khác"></label>
+              <label class="field">Operated by <input class="input" name="operatedBy" value="${esc(p.operatedBy)}" maxlength="200"></label>
+            </div>
+            <label class="field">Nội dung <textarea class="input" name="content">${esc(p.content)}</textarea></label>
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/policy/${esc(p.slug)}" target="_blank">Xem trang</a>
+              <button class="btn btn-primary btn-sm" type="submit">Lưu</button>
+            </div>
+          </form>
+        </details>`).join('');
+    } catch (err) { toast(err.message, true); }
+  }
+  $('#policy-editors').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = e.target.closest('.policy-editor');
+    const f = e.target;
+    // Admin không tự chọn ngày Last Updated → lấy hôm nay.
+    if (f.updatedAt.value === f.updatedAt.dataset.saved) f.updatedAt.value = today();
+    try {
+      const p = await api(`/api/admin/policies/${encodeURIComponent(box.dataset.slug)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: f.title.value, content: f.content.value,
+          effectiveDate: f.effectiveDate.value, updatedAt: f.updatedAt.value, operatedBy: f.operatedBy.value,
+        }),
+      });
+      f.updatedAt.value = f.updatedAt.dataset.saved = p.updatedAt;
+      $('summary span', box).textContent = p.title;
+      $('summary small', box).textContent = policyStatus(p);
+      toast('Đã lưu "' + p.title + '"');
     } catch (err) { toast(err.message, true); }
   });
 

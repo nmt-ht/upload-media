@@ -62,6 +62,16 @@
     .cr-edit .row2 { gap: 10px; }
     .cr-edit .field { font-size: 13px; }
     .cr-edit .input { min-height: 40px; padding: 6px 10px; font-size: 14px; }
+    .hint code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font-size: 12px; color: var(--text); }
+    .policy-editors { display: grid; gap: 10px; }
+    .policy-editor { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+    .policy-editor summary { cursor: pointer; padding: 14px 16px; display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
+    .policy-editor summary small { font-weight: 400; color: var(--muted); white-space: nowrap; }
+    .policy-editor form { display: grid; gap: 12px; padding: 0 16px 16px; }
+    .row3 { display: grid; gap: 12px; }
+    @media (min-width: 640px) { .row3 { grid-template-columns: repeat(3, 1fr); } }
+    .policy-editor textarea { min-height: 320px; font-size: 14px; line-height: 1.6; }
+    .policy-editor .actions { display: flex; gap: 8px; justify-content: flex-end; }
     .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
     .btn-danger:hover { background: rgba(255, 92, 92, .1); }
   </style>
@@ -91,6 +101,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="upload" aria-selected="true"><span data-icon="upload"></span> Tải lên</button>
       <button role="tab" data-tab="manage" aria-selected="false"><span data-icon="image"></span> Quản lý kho</button>
+      <button role="tab" data-tab="policies" aria-selected="false"><span data-icon="fileCheck"></span> Chính sách</button>
       <button role="tab" data-tab="settings" aria-selected="false"><span data-icon="settings"></span> Cài đặt</button>
     </div>
 
@@ -144,6 +155,13 @@
     </section>
 
     <!-- Cài đặt -->
+    <section class="panel" data-pane="policies" hidden>
+      <p class="hint" style="margin:0 0 14px">Các trang này hiện thành hàng link dưới <b>Follow Us</b> ở cuối trang chủ.
+        Cách trình bày: để 1 dòng trống giữa các đoạn · <code># Tiêu đề</code> / <code>## Tiêu đề nhỏ</code> ·
+        <code>- </code> gạch đầu dòng · <code>1. </code> danh sách số · <code>**chữ đậm**</code> · link và email tự thành liên kết.</p>
+      <div class="policy-editors" id="policy-editors"></div>
+    </section>
+
     <section class="panel" data-pane="settings" hidden>
       <form class="form" id="settings-form">
         <p class="hint" style="margin:0">Có thể nhập số điện thoại / username hoặc dán link đầy đủ. Các kênh để trống sẽ hiện "Đang cập nhật".</p>

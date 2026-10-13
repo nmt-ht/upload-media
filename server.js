@@ -19,7 +19,7 @@ fs.mkdirSync(TMP_DIR, { recursive: true });
 for (const dir of ['images', 'audio']) fs.mkdirSync(path.join(UPLOAD_DIR, dir), { recursive: true });
 
 app.disable('x-powered-by');
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '512kb' })); // đủ cho nội dung trang chính sách dài
 
 // ---------- Auth (cookie ký HMAC, đổi mật khẩu = tự đăng xuất mọi phiên) ----------
 const COOKIE = 'ltb_admin';
@@ -87,6 +87,14 @@ function sorted(list) {
 }
 
 app.get('/api/settings', (req, res) => res.json(db.settings));
+// Danh sách chính sách: chỉ slug + tiêu đề (dùng cho hàng link ngoài trang chủ).
+app.get('/api/policies', (req, res) =>
+  res.json(Object.entries(db.policies).map(([slug, p]) => ({ slug, title: p.title }))));
+app.get('/api/policies/:slug', (req, res) => {
+  const p = Object.hasOwn(db.policies, req.params.slug) && db.policies[req.params.slug];
+  if (!p) return res.status(404).json({ error: 'Không tìm thấy' });
+  res.json({ slug: req.params.slug, ...p });
+});
 app.get('/api/limits', (req, res) => res.json({ image: config.image, audio: config.audio }));
 app.get('/api/media', (req, res) => {
   const { type } = req.query;
@@ -257,6 +265,17 @@ app.delete('/api/admin/media/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/admin/policies', requireAdmin, (req, res) =>
+  res.json(Object.entries(db.policies).map(([slug, p]) => ({ slug, ...p }))));
+app.put('/api/admin/policies/:slug', requireAdmin, async (req, res) => {
+  if (!Object.hasOwn(db.policies, req.params.slug)) return res.status(404).json({ error: 'Không tìm thấy' });
+  const body = req.body || {};
+  for (const [k, label] of [['effectiveDate', 'Effective Date'], ['updatedAt', 'Last Updated']]) {
+    if (body[k] !== undefined && body[k] !== '' && !validDate(body[k])) return res.status(400).json({ error: label + ' không hợp lệ' });
+  }
+  res.json(await db.updatePolicy(req.params.slug, body));
+});
+
 app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   await db.updateSettings(req.body || {});
   res.json(db.settings);
@@ -269,6 +288,7 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
   setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
 }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
+app.get('/policy/:slug', (req, res) => res.sendFile(path.join(ROOT, 'public', 'policy.html')));
 app.use((req, res) => res.status(404).sendFile(path.join(ROOT, 'public', 'index.html')));
 
 app.listen(config.port, () => {
