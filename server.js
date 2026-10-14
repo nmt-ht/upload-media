@@ -1,12 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const express = require('express');
 const multer = require('multer');
 
 const config = require('./config');
 require('./lib/seed-demo'); // phải chạy trước khi lib/db đọc dữ liệu
 const db = require('./lib/db');
+const backup = require('./lib/backup');
 const imageSize = require('./lib/image-size');
 const audioInfo = require('./lib/audio-info');
 
@@ -266,10 +268,100 @@ app.patch('/api/admin/media/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/admin/media/:id', requireAdmin, async (req, res) => {
+  if (!db.media.some((m) => m.id === req.params.id)) return res.status(404).json({ error: 'Không tìm thấy' });
+  try {
+    // Bảo đảm có bản sao lưu chứa mục này để khôi phục được nếu xoá nhầm.
+    if (!backup.hasRecentWith(req.params.id)) await backup.create('before-delete', db.toJSON());
+  } catch (e) {
+    console.error('Sao lưu trước khi xoá thất bại:', e);
+    return res.status(500).json({ error: 'Không tạo được bản sao lưu trước khi xoá — chưa xoá gì cả' });
+  }
   const item = await db.removeMedia(req.params.id);
   if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
-  fs.rm(path.join(config.storageDir, item.url), { force: true }, () => {});
+  // Chuyển vào thùng rác (giữ 30 ngày) thay vì xoá hẳn.
+  backup.moveToTrash(item.url).catch((e) => console.error('Chuyển file vào thùng rác thất bại:', e));
   res.json({ ok: true });
+});
+
+// ---------- Sao lưu & khôi phục (tab "Sao lưu" trong trang quản trị) ----------
+app.get('/api/admin/backups', requireAdmin, (req, res) => {
+  res.json({
+    backups: backup.list(),
+    keepDays: backup.KEEP_DAYS,
+    uploads: backup.dirStats(backup.UPLOAD_DIR),
+    trash: backup.dirStats(backup.TRASH_DIR),
+    offsite: backup.offsite(),
+  });
+});
+
+app.post('/api/admin/backups', requireAdmin, async (req, res) => {
+  res.status(201).json({ name: await backup.create('manual', db.toJSON()) });
+});
+
+// Tải lên file sao lưu đã tải về trước đó (.json / .json.gz) — thêm vào danh sách, chưa khôi phục ngay.
+const backupUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 } }).single('file');
+app.post('/api/admin/backups/upload', requireAdmin, (req, res) => {
+  backupUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File sao lưu quá lớn (tối đa 50 MB)' : err.message });
+    if (!req.file) return res.status(400).json({ error: 'Chưa chọn file' });
+    const { data, error } = backup.parse(req.file.buffer);
+    if (error) return res.status(400).json({ error });
+    res.status(201).json({ name: await backup.create('upload', JSON.stringify(data, null, 2)) });
+  });
+});
+
+app.get('/api/admin/backups/full.tar', requireAdmin, (req, res) => {
+  // Toàn bộ dữ liệu (db.json + ảnh/âm thanh + các bản sao lưu) để cất ngoài máy chủ;
+  // khôi phục lên máy chủ mới bằng deploy/restore.sh.
+  const tar = spawn('tar', ['-cf', '-', '-C', config.storageDir, 'data', 'uploads', 'backups']);
+  let started = false;
+  tar.stdout.once('data', () => {
+    started = true;
+    res.setHeader('Content-Type', 'application/x-tar');
+    res.setHeader('Content-Disposition', `attachment; filename="ltb-media-full-${new Date().toISOString().slice(0, 10)}.tar"`);
+  });
+  tar.stdout.pipe(res);
+  tar.stderr.on('data', (d) => console.error('tar:', String(d).trim()));
+  tar.on('error', (e) => {
+    console.error('Không chạy được tar:', e);
+    if (!started) res.status(500).json({ error: 'Máy chủ chưa có lệnh tar' });
+  });
+  req.on('close', () => tar.kill());
+});
+
+app.get('/api/admin/backups/:name', requireAdmin, (req, res) => {
+  const file = backup.filePath(req.params.name);
+  if (!file) return res.status(404).json({ error: 'Không tìm thấy bản sao lưu' });
+  res.download(file, req.params.name);
+});
+
+let restoring = false;
+app.post('/api/admin/backups/:name/restore', requireAdmin, async (req, res) => {
+  if (restoring) return res.status(409).json({ error: 'Đang khôi phục, vui lòng chờ' });
+  const { data, error } = backup.read(req.params.name);
+  if (error) return res.status(400).json({ error });
+  restoring = true;
+  try {
+    // Chụp dữ liệu hiện tại trước — khôi phục nhầm thì khôi phục lại bản "trước khi khôi phục" này.
+    const safety = await backup.create('before-restore', db.toJSON());
+    const before = new Set(db.media.map((m) => m.url));
+    await db.replaceAll(data);
+    const { recovered, missing } = await backup.recoverFiles(db.media);
+    // File của các mục không còn trong dữ liệu đã khôi phục → thùng rác (lấy lại được nếu khôi phục bản "safety").
+    const keep = new Set(db.media.map((m) => m.url));
+    for (const url of before) if (!keep.has(url)) await backup.moveToTrash(url);
+    console.log(`Đã khôi phục ${req.params.name} (bản an toàn: ${safety})`);
+    res.json({
+      ok: true, safety, recovered, missing,
+      images: db.media.filter((m) => m.type === 'image').length,
+      audio: db.media.filter((m) => m.type === 'audio').length,
+    });
+  } catch (e) {
+    console.error('Khôi phục thất bại:', e);
+    res.status(500).json({ error: 'Khôi phục thất bại: ' + e.message });
+  } finally {
+    restoring = false;
+  }
 });
 
 app.get('/api/admin/policies', requireAdmin, (req, res) =>
@@ -346,3 +438,6 @@ const server = app.listen(config.port, () => {
 // Mặc định Node huỷ request quá 5 phút — không đủ cho audio tới 1000 MB qua mạng chậm.
 // Phải khớp với client_body_timeout / proxy_*_timeout của Nginx (deploy/setup.sh).
 server.requestTimeout = 2 * 3600 * 1000;
+
+// Bản sao lưu tự động mỗi ngày + dọn thùng rác quá hạn (xem lib/backup.js).
+backup.startDaily(() => db.toJSON());

@@ -5,13 +5,25 @@ set -euo pipefail
 
 APP_DIR=/opt/ltb-media/app
 [[ $EUID -eq 0 ]] || { echo "Cần chạy bằng root: sudo $0"; exit 1; }
+STORAGE_DIR=$(sed -n 's/^STORAGE_DIR=//p' "/opt/ltb-media/.env" 2>/dev/null | tail -1 || true)
+export STORAGE_DIR="${STORAGE_DIR:-/var/lib/ltb-media}"
 
-"$APP_DIR/deploy/backup.sh" || true
+"$APP_DIR/deploy/backup.sh" server || true
 cd "$APP_DIR"
 before=$(git rev-parse --short HEAD)
 git pull --ff-only
 npm ci --omit=dev --no-audit --no-fund
 chmod +x deploy/*.sh
+
+# Bản sao lưu kiểu cũ (/var/backups/ltb-media/db-<ngày>.json.gz, chỉ root đọc được) → chép vào
+# STORAGE_DIR/backups để hiện trong trang quản trị → Sao lưu. Chạy lại không chép trùng.
+for f in /var/backups/ltb-media/db-????-??-??.json.gz; do
+  [[ -f $f ]] || continue
+  d=$(basename "$f" .json.gz); d=${d#db-}
+  dest="$STORAGE_DIR/backups/db-${d//-/}T000000Z-imported.json.gz"
+  [[ -f $dest ]] || { mkdir -p "$STORAGE_DIR/backups"; cp "$f" "$dest"; }
+done
+chown -R ltbmedia: "$STORAGE_DIR/backups" 2>/dev/null || true
 
 # Đồng bộ giới hạn upload của Nginx với config.js (server cài từ bản cũ để 310 MB).
 # Chỉ sửa từng dòng vì certbot đã thêm cấu hình SSL vào file; lỗi thì khôi phục bản cũ.

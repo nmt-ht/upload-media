@@ -74,6 +74,20 @@
     .policy-editor .actions { display: flex; gap: 8px; justify-content: flex-end; }
     .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
     .btn-danger:hover { background: rgba(255, 92, 92, .1); }
+    .bk-stats { display: grid; gap: 10px; margin-bottom: 16px; }
+    @media (min-width: 640px) { .bk-stats { grid-template-columns: repeat(3, 1fr); } }
+    .bk-stat { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: 14px; }
+    .bk-stat strong { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .bk-stat .ok { color: var(--ok); } .bk-stat .bad { color: var(--danger); }
+    .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .bk-list { display: grid; gap: 8px; }
+    .bk-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+    .bk-row .when { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .bk-row .meta { font-size: 13px; color: var(--muted); }
+    .bk-tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); margin-left: 6px; }
+    .bk-tag.daily { color: var(--accent); } .bk-tag.before-restore, .bk-tag.before-delete { color: #7cc4ff; }
+    .bk-result { padding: 14px; border-radius: 12px; border: 1px solid var(--ok); background: rgba(74, 222, 128, .06); margin-bottom: 14px; font-size: 14px; }
+    .bk-result.warn { border-color: var(--danger); background: rgba(255, 92, 92, .06); }
   </style>
 </head>
 <body data-page="admin">
@@ -103,6 +117,7 @@
       <button role="tab" data-tab="manage" aria-selected="false"><span data-icon="image"></span> Quản lý kho</button>
       <button role="tab" data-tab="policies" aria-selected="false"><span data-icon="fileCheck"></span> Chính sách</button>
       <button role="tab" data-tab="settings" aria-selected="false"><span data-icon="settings"></span> Cài đặt</button>
+      <button role="tab" data-tab="backups" aria-selected="false"><span data-icon="history"></span> Sao lưu</button>
     </div>
 
     <!-- Tải lên -->
@@ -160,6 +175,22 @@
         Cách trình bày: để 1 dòng trống giữa các đoạn · <code># Tiêu đề</code> / <code>## Tiêu đề nhỏ</code> ·
         <code>- </code> gạch đầu dòng · <code>1. </code> danh sách số · <code>**chữ đậm**</code> · link và email tự thành liên kết.</p>
       <div class="policy-editors" id="policy-editors"></div>
+    </section>
+
+    <!-- Sao lưu & khôi phục -->
+    <section class="panel" data-pane="backups" hidden>
+      <div class="bk-stats" id="bk-stats"></div>
+      <div class="bk-actions">
+        <button class="btn btn-primary btn-sm" id="bk-create"><span data-icon="shield" data-size="16"></span> Sao lưu ngay</button>
+        <a class="btn btn-ghost btn-sm" id="bk-full" href="/api/admin/backups/full.tar" download><span data-icon="download" data-size="16"></span> Tải toàn bộ dữ liệu (.tar)</a>
+        <label class="btn btn-ghost btn-sm"><span data-icon="upload" data-size="16"></span> Tải lên file sao lưu
+          <input type="file" id="bk-upload" accept=".json,.gz,application/json,application/gzip" hidden></label>
+      </div>
+      <p class="hint" style="margin:0 0 14px">Website tự sao lưu mỗi ngày và ngay trước khi xoá nội dung. Ảnh/âm thanh bị xoá được giữ trong thùng rác
+        <b data-keep-days>30</b> ngày — khôi phục một bản sao lưu sẽ tự lấy lại các file đó. Trước mỗi lần khôi phục, dữ liệu hiện tại được sao lưu
+        (<i>Trước khi khôi phục</i>) nên luôn quay lại được. <b>Tải toàn bộ dữ liệu</b> định kỳ và cất ở nơi khác (máy tính, Google Drive) để phòng mất máy chủ.</p>
+      <div id="bk-result"></div>
+      <div class="bk-list" id="bk-list"></div>
     </section>
 
     <section class="panel" data-pane="settings" hidden>

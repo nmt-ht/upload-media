@@ -37,6 +37,7 @@
     $$('.tabs [data-tab]').forEach((t) => t.setAttribute('aria-selected', t === b));
     $$('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
     if (b.dataset.tab === 'manage') loadItems();
+    if (b.dataset.tab === 'backups') loadBackups();
   });
 
   // ---------- Thông tin bản quyền (khung Copyright Information ngoài trang) ----------
@@ -268,7 +269,7 @@
         toast('Đã lưu');
       } else if (e.target.closest('[data-del]')) {
         const m = items.find((x) => x.id === id);
-        if (!confirm(`Xoá vĩnh viễn "${m.title}"? File sẽ bị xoá khỏi máy chủ.`)) return;
+        if (!confirm(`Xoá "${m.title}"?\n\nFile được giữ trong thùng rác 30 ngày — lấy lại bằng tab Sao lưu → Khôi phục bản "Trước khi xoá".`)) return;
         await api(`/api/admin/media/${id}`, { method: 'DELETE' });
         items = items.filter((x) => x.id !== id);
         drawItems();
@@ -334,6 +335,88 @@
     const body = Object.fromEntries(new FormData(sform));
     try { await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(body) }); toast('Đã lưu cài đặt'); }
     catch (err) { toast(err.message, true); }
+  });
+
+  // ---------- Sao lưu & khôi phục ----------
+  const REASON = {
+    daily: 'Tự động hằng ngày', manual: 'Sao lưu thủ công', 'before-delete': 'Trước khi xoá',
+    'before-restore': 'Trước khi khôi phục', upload: 'Tải lên từ máy', server: 'Máy chủ (trước cập nhật)', imported: 'Bản cũ trên máy chủ',
+  };
+  const when = (iso) => new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const countText = (b) => (b.invalid ? 'File hỏng — không khôi phục được' : `${b.images} ảnh · ${b.audio} âm thanh`);
+  let backups = [];
+
+  async function loadBackups() {
+    try {
+      const s = await api('/api/admin/backups');
+      backups = s.backups;
+      $$('[data-keep-days]').forEach((el) => { el.textContent = s.keepDays; });
+      const last = backups.find((b) => !['upload', 'imported'].includes(b.reason));
+      const off = s.offsite;
+      const offAge = off && (Date.now() - Date.parse(off.at)) / 3600000;
+      $('#bk-stats').innerHTML = `
+        <div class="bk-stat"><strong>Bản sao lưu gần nhất</strong>${last
+          ? `${when(last.createdAt)}<br><span class="muted">${REASON[last.reason] || last.reason}</span>` : '<span class="bad">Chưa có</span>'}</div>
+        <div class="bk-stat"><strong>Dữ liệu &amp; thùng rác</strong>${s.uploads.files} file · ${fmtBytes(s.uploads.bytes)}<br>
+          <span class="muted">Thùng rác: ${s.trash.files} file · ${fmtBytes(s.trash.bytes)} (giữ ${s.keepDays} ngày)</span></div>
+        <div class="bk-stat"><strong>Sao lưu ra ngoài máy chủ</strong>${!off
+          ? '<span class="bad">Chưa cấu hình</span><br><span class="muted">Hãy tải toàn bộ dữ liệu định kỳ</span>'
+          : off.ok && offAge < 48
+            ? `<span class="ok">Hoạt động</span> · ${when(off.at)}<br><span class="muted">${esc(off.remote || '')}</span>`
+            : `<span class="bad">${off.ok ? 'Quá 2 ngày chưa chạy' : 'Lỗi'}</span> · ${when(off.at)}<br><span class="muted">${esc(off.message || '')}</span>`}</div>`;
+      $('#bk-full').innerHTML = `${icon('download', 16)} Tải toàn bộ dữ liệu (.tar · ~${fmtBytes(s.uploads.bytes)})`;
+      $('#bk-list').innerHTML = backups.length ? backups.map((b) => `
+        <div class="bk-row" data-name="${esc(b.name)}">
+          <div><span class="when">${when(b.createdAt)}</span><span class="bk-tag ${esc(b.reason)}">${REASON[b.reason] || esc(b.reason)}</span>
+            <div class="meta">${countText(b)} · ${fmtBytes(b.size)}</div></div>
+          <span style="display:flex;gap:6px">
+            <a class="btn btn-ghost btn-sm" href="/api/admin/backups/${encodeURIComponent(b.name)}" download>${icon('download', 16)} Tải về</a>
+            <button class="btn btn-ghost btn-sm" data-restore ${b.invalid ? 'disabled' : ''}>${icon('history', 16)} Khôi phục</button>
+          </span>
+        </div>`).join('') : '<div class="empty">Chưa có bản sao lưu nào.</div>';
+    } catch (err) { toast(err.message, true); }
+  }
+
+  $('#bk-create').addEventListener('click', async () => {
+    try { await api('/api/admin/backups', { method: 'POST' }); toast('Đã tạo bản sao lưu'); loadBackups(); }
+    catch (err) { toast(err.message, true); }
+  });
+
+  $('#bk-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      await api('/api/admin/backups/upload', { method: 'POST', body: fd });
+      toast('Đã thêm "' + file.name + '" vào danh sách — bấm Khôi phục ở dòng "Tải lên từ máy" để dùng');
+      loadBackups();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $('#bk-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-restore]');
+    if (!btn) return;
+    const b = backups.find((x) => x.name === btn.closest('.bk-row').dataset.name);
+    if (!confirm(`Khôi phục dữ liệu về bản sao lưu lúc ${when(b.createdAt)} (${countText(b)})?\n\n`
+      + 'Danh sách ảnh/âm thanh, cài đặt và chính sách sẽ trở về như lúc đó. Dữ liệu hiện tại được tự sao lưu trước '
+      + '("Trước khi khôi phục") để có thể quay lại nếu cần.')) return;
+    btn.disabled = true;
+    try {
+      const r = await api(`/api/admin/backups/${encodeURIComponent(b.name)}/restore`, { method: 'POST' });
+      const missing = r.missing.length
+        ? `<br><b>Thiếu ${r.missing.length} file</b> (đã quá ${$('[data-keep-days]').textContent} ngày hoặc mất ổ đĩa — cần chép lại từ bản sao lưu ngoài máy chủ):
+           ${r.missing.slice(0, 10).map((m) => `${m.type === 'image' ? 'Ảnh' : 'Âm thanh'} #${m.no} ${esc(m.title)}`).join(', ')}${r.missing.length > 10 ? '…' : ''}`
+        : '';
+      $('#bk-result').innerHTML = `<div class="bk-result${r.missing.length ? ' warn' : ''}">
+        Đã khôi phục: <b>${r.images} ảnh · ${r.audio} âm thanh</b>${r.recovered ? `, lấy lại ${r.recovered} file từ thùng rác` : ''}.${missing}</div>`;
+      toast('Khôi phục thành công');
+      loadItems(); loadSettings(); loadPolicies(); loadBackups();
+    } catch (err) {
+      toast(err.message, true);
+      btn.disabled = false;
+    }
   });
 
   // ---------- Khởi động ----------

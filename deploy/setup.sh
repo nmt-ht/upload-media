@@ -16,7 +16,7 @@ APP_USER=ltbmedia
 BASE_DIR=/opt/ltb-media
 APP_DIR=$BASE_DIR/app
 ENV_FILE=$BASE_DIR/.env
-STORAGE_DIR=/var/lib/ltb-media           # data/ + uploads/ — đây là thứ cần giữ và sao lưu
+STORAGE_DIR=/var/lib/ltb-media           # data/ + uploads/ + backups/ + trash/ — đây là thứ cần giữ và sao lưu
 BACKUP_DIR=/var/backups/ltb-media
 PORT=3000
 
@@ -179,8 +179,8 @@ else
   echo "    sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN --redirect --agree-tos -m $EMAIL"
 fi
 
-step "Sao lưu tự động hằng ngày (2:30 sáng)"
-chmod +x $APP_DIR/deploy/backup.sh $APP_DIR/deploy/update.sh
+step "Sao lưu ra ngoài máy chủ hằng ngày (2:30 sáng, cần cấu hình rclone — xem README)"
+chmod +x $APP_DIR/deploy/*.sh
 cat > /etc/cron.d/ltb-media-backup <<EOF
 30 2 * * * root STORAGE_DIR=$STORAGE_DIR BACKUP_DIR=$BACKUP_DIR $APP_DIR/deploy/backup.sh >> /var/log/ltb-media-backup.log 2>&1
 EOF
@@ -194,7 +194,8 @@ cat <<EOF
   Website:      $URL
   Quản trị:     $URL/admin
   Dữ liệu:      $STORAGE_DIR   (data/db.json + uploads/)
-  Sao lưu:      $BACKUP_DIR    (db.json 30 ngày gần nhất)
+  Sao lưu:      $STORAGE_DIR/backups  (tự động mỗi ngày — xem/khôi phục ở trang Quản trị → Sao lưu)
+  Khôi phục khi mất máy chủ: sudo $APP_DIR/deploy/restore.sh
   Xem log:      journalctl -u ltb-media -f
   Cập nhật:     sudo $APP_DIR/deploy/update.sh
 EOF
@@ -211,6 +212,6 @@ if ! rclone listremotes 2>/dev/null | grep -q '^ltbbackup:$'; then
   cat <<EOF
 
   Việc còn lại: đưa bản sao lưu ra ngoài máy chủ (Google Drive...) — xem mục
-  "Sao lưu ra ngoài" trong README. Hiện mới sao lưu db.json trên chính máy chủ.
+  "Sao lưu ra ngoài" trong README. Hiện bản sao lưu chỉ nằm trên chính máy chủ.
 EOF
 fi

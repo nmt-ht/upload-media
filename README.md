@@ -55,7 +55,7 @@ Nội dung chỉ bị xoá khi admin bấm Xoá trong trang quản trị — kh�
 Điều kiện duy nhất: `STORAGE_DIR` phải nằm trên ổ đĩa không bị xoá khi server khởi động lại (VPS, hoặc Render gói trả phí có Persistent Disk — xem `render.yaml`).
 Nếu `db.json` bị hỏng, server sẽ dừng và báo lỗi thay vì tạo dữ liệu rỗng đè lên — khôi phục từ bản sao lưu rồi chạy lại.
 
-Sao lưu `data/` và `uploads/` là đủ (nên sao lưu định kỳ). Xoá cả hai để làm trống website (dữ liệu demo hiện tại chỉ là ảnh gradient và âm thanh test).
+Sao lưu `data/` và `uploads/` là đủ — xem mục **Sao lưu & khôi phục** bên dưới. Xoá cả hai để làm trống website (dữ liệu demo hiện tại chỉ là ảnh gradient và âm thanh test).
 
 ### Có thể tải lên bao nhiêu file?
 
@@ -99,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/nmt-ht/upload-media/master/deploy/s
 sudo DOMAIN=ltbmedia.net EMAIL=contact@ltbmedia.net bash setup.sh
 ```
 
-Script ([deploy/setup.sh](deploy/setup.sh)) tự làm: cập nhật Ubuntu, swap 1 GB, Node.js 22, tải code về `/opt/ltb-media/app`, tạo `.env` với **mật khẩu admin ngẫu nhiên** (in ra màn hình cuối cùng — lưu lại), dữ liệu ở `/var/lib/ltb-media` (`DEMO_SEED=false`, kho trống, giữ thông tin liên hệ), chạy nền bằng systemd (tự bật lại khi lỗi / khởi động lại máy), Nginx với giới hạn upload 1010 MB, tường lửa (chỉ mở SSH/HTTP/HTTPS), SSL Let's Encrypt (tự gia hạn), sao lưu `db.json` hằng ngày lúc 2:30.
+Script ([deploy/setup.sh](deploy/setup.sh)) tự làm: cập nhật Ubuntu, swap 1 GB, Node.js 22, tải code về `/opt/ltb-media/app`, tạo `.env` với **mật khẩu admin ngẫu nhiên** (in ra màn hình cuối cùng — lưu lại), dữ liệu ở `/var/lib/ltb-media` (`DEMO_SEED=false`, kho trống, giữ thông tin liên hệ), chạy nền bằng systemd (tự bật lại khi lỗi / khởi động lại máy), Nginx với giới hạn upload 1010 MB, tường lửa (chỉ mở SSH/HTTP/HTTPS), SSL Let's Encrypt (tự gia hạn), sao lưu ra Google Drive hằng đêm lúc 2:30 (khi đã cấu hình rclone).
 Chạy lại script an toàn — không đụng tới dữ liệu và mật khẩu đã có.
 
 Nếu lúc cài tên miền chưa trỏ về máy chủ, script bỏ qua SSL và in sẵn lệnh `certbot` để chạy sau.
@@ -115,18 +115,32 @@ Nếu lúc cài tên miền chưa trỏ về máy chủ, script bỏ qua SSL và
 | Đổi mật khẩu admin | sửa dòng đó trong `/opt/ltb-media/.env` rồi `sudo systemctl restart ltb-media` |
 | Dung lượng ổ đĩa | `df -h /` và `sudo du -sh /var/lib/ltb-media/uploads` |
 
-### 4. Sao lưu ra ngoài máy chủ (nên làm)
+### 4. Sao lưu & khôi phục
 
-Mặc định chỉ sao lưu `db.json` trên chính máy chủ. Để đẩy cả `db.json` lẫn toàn bộ ảnh/âm thanh sang Google Drive mỗi đêm, cấu hình rclone 1 lần:
+**Trên máy chủ — tự động, không cần làm gì** (trang quản trị → tab **Sao lưu**):
+
+- Website tự chụp dữ liệu (danh sách ảnh/âm thanh, cài đặt, chính sách) **mỗi ngày**, **trước khi xoá** nội dung và **trước khi khôi phục**; giữ 30 ngày (luôn còn ít nhất 10 bản mới nhất). Nằm ở `/var/lib/ltb-media/backups/`.
+- Ảnh/âm thanh bị xoá được chuyển vào **thùng rác** `/var/lib/ltb-media/trash/`, giữ 30 ngày rồi mới xoá hẳn.
+- **Khôi phục** (xoá nhầm, sửa nhầm, muốn quay về hôm trước): tab Sao lưu → chọn bản → **Khôi phục**. Ảnh/âm thanh trong thùng rác được lấy lại tự động. Trước khi khôi phục, dữ liệu hiện tại được tự sao lưu (bản *Trước khi khôi phục*) nên luôn hoàn tác được.
+- **Tải về / Tải lên file sao lưu**: lưu file `.json.gz` về máy và nạp lại khi cần.
+- **Tải toàn bộ dữ liệu (.tar)**: gồm cả ảnh/âm thanh — nên tải định kỳ và cất ở nơi khác.
+
+**Ra ngoài máy chủ — phòng mất cả máy chủ (nên làm)**: `deploy/backup.sh` chạy lúc 2:30 mỗi đêm, đẩy `db.json`, các bản sao lưu và toàn bộ ảnh/âm thanh lên Google Drive. Cấu hình rclone 1 lần:
 
 1. Trên máy chủ chạy `sudo rclone config` → `n` (new remote) → tên **`ltbbackup`** → chọn **Google Drive** → để trống client id/secret → scope `1` (full access) → các câu sau Enter mặc định.
 2. Khi hỏi *"Use web browser to automatically authenticate?"* chọn **`n`**: rclone in ra một lệnh `rclone authorize "drive" "..."`. Chạy lệnh đó trên máy tính có trình duyệt (cài rclone từ rclone.org), đăng nhập Google, rồi dán mã nhận được vào máy chủ.
-3. Kiểm tra: `sudo /opt/ltb-media/app/deploy/backup.sh` — dòng cuối phải là "đã đẩy ra ltbbackup:ltb-media".
+3. Kiểm tra: `sudo /opt/ltb-media/app/deploy/backup.sh` — dòng cuối phải là "đã đẩy ra ltbbackup:ltb-media". Trang quản trị → Sao lưu sẽ hiện **Sao lưu ra ngoài máy chủ: Hoạt động** (báo đỏ nếu lỗi hoặc quá 2 ngày không chạy).
 
-Trên Drive sẽ có thư mục `ltb-media/` gồm `db/` (30 bản db.json gần nhất), `uploads/` (bản sao toàn bộ file) và `deleted/<ngày>` (file admin đã xoá trên web — xoá hẳn khi chắc chắn không cần).
-Ngoài ra nên bật **Snapshot / Backup tự động** của nhà cung cấp máy chủ (iNET: mục Cloud Server → Snapshots).
+Trên Drive có thư mục `ltb-media/` gồm `data/` (db.json lúc đẩy), `backups/`, `uploads/` (bản sao toàn bộ file) và `deleted/<ngày>` (file đã xoá trên web). Nên bật thêm **Snapshot** của nhà cung cấp máy chủ (iNET: Cloud Server → Snapshots).
 
-**Khôi phục:** dừng web (`sudo systemctl stop ltb-media`), giải nén bản `db-<ngày>.json.gz` cần dùng vào `/var/lib/ltb-media/data/db.json`, chép lại `uploads/` từ Drive (`sudo rclone copy ltbbackup:ltb-media/uploads /var/lib/ltb-media/uploads`), `sudo chown -R ltbmedia: /var/lib/ltb-media`, rồi `sudo systemctl start ltb-media`.
+**Khôi phục khi mất máy chủ / hỏng ổ đĩa** (máy chủ mới thì chạy `setup.sh` trước):
+
+```bash
+sudo /opt/ltb-media/app/deploy/restore.sh drive                          # từ Google Drive
+sudo /opt/ltb-media/app/deploy/restore.sh ltb-media-full-2026-10-14.tar  # từ file "Tải toàn bộ dữ liệu"
+```
+
+Script kiểm tra dữ liệu, hỏi xác nhận, chuyển dữ liệu đang có sang `/var/lib/ltb-media.before-restore-<thời điểm>` (không xoá), khôi phục rồi chạy lại web.
 
 ## Cấu trúc
 
@@ -134,8 +148,9 @@ Ngoài ra nên bật **Snapshot / Backup tự động** của nhà cung cấp m�
 server.js            API + phục vụ trang
 config.js            giới hạn upload, cổng, mật khẩu
 lib/db.js            lưu dữ liệu JSON
+lib/backup.js        sao lưu tự động, thùng rác, khôi phục
 lib/image-size.js    đọc kích thước ảnh (không cần thư viện ngoài)
 lib/audio-info.js    đọc thông số âm thanh (kHz / bit / kbps)
-deploy/              script cài đặt, cập nhật, sao lưu trên máy chủ Ubuntu
+deploy/              script cài đặt, cập nhật, sao lưu, khôi phục trên máy chủ Ubuntu
 public/              giao diện (HTML/CSS/JS thuần, không cần build)
 ```
