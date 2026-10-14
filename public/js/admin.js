@@ -238,7 +238,7 @@
           <div class="line" style="justify-content:space-between">
             <span class="real">${m.type === 'image' ? `${m.width}×${m.height}` : fmtDuration(m.duration)} · ${fmtBytes(m.size)} · Tải lên thật: ${new Date(m.uploadedAt).toLocaleString('vi-VN')}</span>
             <span style="display:flex;gap:6px">
-              <a class="btn btn-ghost btn-sm" href="${esc(m.path)}" target="_blank" rel="noopener" title="Mở trang riêng của file này">${icon('link', 16)} Xem</a>
+              <a class="btn btn-ghost btn-sm" href="${esc(m.path)}" target="_blank" rel="noopener" title="Mở trang riêng của file này">${icon('link', 16)} #${m.no}</a>
               <button class="btn btn-ghost btn-sm" data-save>Lưu</button>
               <button class="btn btn-danger btn-sm" data-del aria-label="Xoá">${icon('trash', 16)}</button>
             </span>

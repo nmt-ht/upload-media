@@ -76,15 +76,10 @@ app.post('/api/admin/logout', (req, res) => {
 });
 app.get('/api/admin/me', (req, res) => res.json({ admin: isAdmin(req) }));
 
-// ---------- Đường dẫn riêng cho từng ảnh / âm thanh: /images/ten-anh-<id>, /audio/ten-audio-<id> ----------
+// ---------- Đường dẫn riêng cho từng ảnh / âm thanh: /images/1, /audio/1 (số thứ tự, xem lib/db.js) ----------
 const LIST_PATH = { image: '/images', audio: '/audio' };
-function slugify(s) {
-  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
-}
 function itemPath(m) {
-  const slug = slugify(m.title);
-  return `${LIST_PATH[m.type]}/${slug ? slug + '-' : ''}${m.id}`;
+  return `${LIST_PATH[m.type]}/${m.no}`;
 }
 
 // ---------- Public API ----------
@@ -307,13 +302,13 @@ app.get('/policy/:slug', (req, res) => res.sendFile(path.join(ROOT, 'public', 'p
 const escAttr = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 for (const [type, page] of [['image', 'images.html'], ['audio', 'audio.html']]) {
   app.get(`${LIST_PATH[type]}/:key`, async (req, res, next) => {
-    const id = (req.params.key.match(/(?:^|-)([0-9a-f]{16})$/) || [])[1];
-    const item = id && db.media.find((m) => m.id === id && m.type === type);
+    const { key } = req.params;
+    // /images/12 — hoặc link kiểu cũ /images/ten-anh-<id 16 ký tự> → chuyển sang link số.
+    const legacyId = !/^\d+$/.test(key) && (key.match(/(?:^|-)([0-9a-f]{16})$/) || [])[1];
+    const item = db.media.find((m) => m.type === type && (legacyId ? m.id === legacyId : String(m.no) === key));
     if (!item) return next();
     const canonical = itemPath(item);
-    // Tiêu đề đã đổi → về link mới. 302 (không phải 301) vì trình duyệt nhớ 301 vĩnh viễn,
-    // đổi tiêu đề qua lại sẽ thành vòng lặp redirect.
-    if (req.path !== canonical) return res.redirect(302, canonical);
+    if (req.path !== canonical) return res.redirect(301, canonical);
 
     const origin = `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
     const title = `${item.title} — LTB Media Network`;

@@ -96,7 +96,7 @@
     LTB.toast('Đã sao chép link: ' + url);
   }
 
-  // URL đổi theo khung chi tiết: mở → /images/ten-anh-<id>, đóng / Back → về trang trước.
+  // URL đổi theo khung chi tiết: mở → /images/12, đóng / Back → về trang trước.
   const LIST_PATH = { image: '/images', audio: '/audio' };
   // Trang chi tiết do server trả về đã đổi <title> thành tên file; tiêu đề gốc của trang kho nằm ở thẻ meta.
   const baseTitle = document.querySelector('meta[name="ltb-page-title"]')?.content || document.title;
@@ -268,10 +268,9 @@
     }
     draw();
 
-    // Vào thẳng link chi tiết (/images/ten-anh-<id>) → mở khung chi tiết của đúng file đó.
-    const id = (location.pathname.match(/^\/(?:images|audio)\/(?:.*-)?([0-9a-f]{16})$/) || [])[1];
-    if (id) {
-      const item = all.find((m) => m.id === id);
+    // Vào thẳng link chi tiết (/images/12) → mở khung chi tiết của đúng file đó.
+    if (location.pathname !== LIST_PATH[kind]) {
+      const item = all.find((m) => m.path === location.pathname);
       if (item) openDetails(item, { fromUrl: true });
       else history.replaceState(null, '', LIST_PATH[kind]);
     }
