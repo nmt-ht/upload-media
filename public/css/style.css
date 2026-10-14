@@ -353,7 +353,9 @@ a.social:hover { color: var(--accent-ink); background: var(--accent); border-col
 .cr-empty { color: var(--dim) !important; font-style: italic; }
 .cr-verify { color: #fbbf24 !important; font-weight: 600; }
 .cr-verify.ok { color: var(--ok) !important; }
-.cr-cta { width: 100%; margin-top: 24px; }
+.cr-actions { display: grid; gap: 10px; margin-top: 24px; }
+.cr-cta { width: 100%; }
+a.tile { display: block; }
 
 /* ---------- Footer ---------- */
 .site-footer { border-top: 1px solid var(--line); padding: 32px 0 40px; color: var(--muted); font-size: 14px; margin-top: 40px; }

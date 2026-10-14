@@ -11,14 +11,14 @@ module.exports = {
   storageDir: path.resolve(process.env.STORAGE_DIR || __dirname),
 
   image: {
-    maxBytes: 360 * KB,
+    maxBytes: 1.5 * MB,
     width: 1920,
     height: 1080,
     mimes: ['image/jpeg', 'image/png', 'image/webp'],
   },
 
   audio: {
-    maxBytes: 300 * MB,
+    maxBytes: 1000 * MB,
     minDuration: 10, // giây
     maxDuration: 15, // giây
     mimes: [

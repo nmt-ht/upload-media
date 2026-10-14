@@ -132,15 +132,15 @@ sleep 2
 curl -fsS -o /dev/null http://127.0.0.1:$PORT/api/settings && echo "Web đang chạy ở cổng $PORT." \
   || { warn "Web chưa chạy — xem lỗi: journalctl -u ltb-media -n 50"; exit 1; }
 
-step "Nginx (tên miền, giới hạn upload 310 MB)"
+step "Nginx (tên miền, giới hạn upload 1010 MB)"
 cat > /etc/nginx/sites-available/ltb-media <<EOF
 server {
     listen 80;
     listen [::]:80;
     server_name $DOMAIN www.$DOMAIN;
 
-    client_max_body_size 310m;   # audio cho phép tới 300 MB (config.js)
-    client_body_timeout 300s;
+    client_max_body_size 1010m;  # audio cho phép tới 1000 MB (config.js)
+    client_body_timeout 600s;
 
     location / {
         proxy_pass http://127.0.0.1:$PORT;
@@ -150,8 +150,8 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_request_buffering off;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
+        proxy_read_timeout 7200s;   # file lớn qua mạng chậm (khớp server.requestTimeout)
+        proxy_send_timeout 600s;
     }
 }
 EOF

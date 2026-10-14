@@ -7,21 +7,27 @@
       <div>Chưa có ${kind === 'image' ? 'hình ảnh' : 'âm thanh'} nào.</div></div>`;
   }
 
+  // Ctrl/⌘/Shift/chuột giữa trên link chi tiết: để trình duyệt mở tab mới như link thường.
+  const newTabClick = (e) => e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1;
+
   // ---------- Ảnh ----------
   function renderImages(el, list) {
     if (!list.length) { el.innerHTML = emptyHTML('image'); return; }
+    list.forEach((m) => known.set(m.id, m));
     el.innerHTML = list.map((m, i) => `
-      <button class="tile" data-i="${i}">
+      <a class="tile" href="${esc(m.path)}" data-i="${i}">
         <div class="thumb">
           <img src="${esc(m.url)}" alt="${esc(m.title)}" loading="lazy" draggable="false">
           ${m.protected === false ? '' : `<span class="badge-protected">${icon('shield', 12, 2.5)} Protected</span>`}
         </div>
         <div class="meta"><strong>${esc(m.title)}</strong>
           <span class="date">${icon('calendar', 14)} ${fmtDate(m.publishedAt)}</span></div>
-      </button>`).join('');
+      </a>`).join('');
     el.onclick = (e) => {
       const tile = e.target.closest('.tile');
-      if (tile) openDetails(list[Number(tile.dataset.i)]);
+      if (!tile || newTabClick(e)) return;
+      e.preventDefault();
+      openDetails(list[Number(tile.dataset.i)]);
     };
   }
 
@@ -73,11 +79,46 @@
       <h4 class="cr-heading">Copyright Information</h4>
       <ul class="cr-list">${rows.map(([ic, label, v]) =>
         `<li>${icon(ic, 20, 1.8)}<div><strong>${label}</strong><span>${v}</span></div></li>`).join('')}</ul>
-      <button class="btn btn-primary btn-sm cr-cta" data-license>${icon('shield', 16)} Liên hệ cấp phép</button>`;
+      <div class="cr-actions">
+        <button class="btn btn-primary btn-sm cr-cta" data-license>${icon('shield', 16)} Liên hệ cấp phép</button>
+        <button class="btn btn-ghost btn-sm" data-copy-link>${icon('link', 16)} Sao chép link</button>
+      </div>`;
   }
 
+  async function copyLink(path) {
+    const url = location.origin + path;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const t = Object.assign(document.createElement('textarea'), { value: url });
+      document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove();
+    }
+    LTB.toast('Đã sao chép link: ' + url);
+  }
+
+  // URL đổi theo khung chi tiết: mở → /images/ten-anh-<id>, đóng / Back → về trang trước.
+  const LIST_PATH = { image: '/images', audio: '/audio' };
+  // Trang chi tiết do server trả về đã đổi <title> thành tên file; tiêu đề gốc của trang kho nằm ở thẻ meta.
+  const baseTitle = document.querySelector('meta[name="ltb-page-title"]')?.content || document.title;
+  let openBox = null; // { id, close }
+  const known = new Map(); // id → mục đã hiển thị, để Forward mở lại được
+  window.addEventListener('popstate', () => {
+    const id = history.state?.ltbDetail;
+    if (openBox && id !== openBox.id) openBox.close({ fromPop: true });
+    if (id && !openBox && known.has(id)) openDetails(known.get(id), { viaHistory: true });
+  });
+
   // Ảnh: xem lớn + khung thông tin bên cạnh (dưới trên điện thoại). Âm thanh: chỉ khung thông tin.
-  function openDetails(m) {
+  // fromUrl: mở do người dùng vào thẳng link chi tiết (không thêm lịch sử).
+  // viaHistory: mở lại khi bấm Forward — mục lịch sử đã có sẵn, đóng thì Back như thường.
+  function openDetails(m, { fromUrl = false, viaHistory = false } = {}) {
+    if (openBox) openBox.close({ silent: true });
+    known.set(m.id, m);
+    const pushed = viaHistory || (!fromUrl && !!m.path && location.pathname !== m.path);
+    if (viaHistory) { /* URL đã đúng */ }
+    else if (pushed) history.pushState({ ltbDetail: m.id }, '', m.path);
+    else history.replaceState({ ltbDetail: m.id }, '');
+    document.title = `${m.title} — LTB Media Network`;
     const box = document.createElement('div');
     box.className = 'lightbox' + (m.type === 'image' ? ' has-media' : '');
     box.setAttribute('role', 'dialog');
@@ -89,9 +130,19 @@
         ${m.type === 'image' ? `<div class="lightbox-body"><img src="${esc(m.url)}" alt="${esc(m.title)}" draggable="false"></div>` : ''}
         <aside class="cr-card">${copyrightHTML(m)}</aside>
       </div>`;
-    const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+    const close = ({ fromPop = false, silent = false } = {}) => {
+      box.remove();
+      document.removeEventListener('keydown', onKey);
+      openBox = null;
+      document.title = baseTitle;
+      if (fromPop || silent) return;
+      if (pushed) history.back();
+      else history.replaceState(null, '', LIST_PATH[m.type]); // vào thẳng link → đóng thì về trang kho
+    };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
+    openBox = { id: m.id, close };
     box.addEventListener('click', (e) => {
+      if (e.target.closest('[data-copy-link]')) { copyLink(m.path); return; }
       if (e.target.closest('[data-license]')) { close(); LTB.open('contact'); return; }
       if (e.target.closest('[data-close-box]') || e.target === box
         || e.target.classList.contains('details') || e.target.classList.contains('lightbox-body')) close();
@@ -133,6 +184,7 @@
 
   function renderAudio(el, list) {
     if (!list.length) { el.innerHTML = emptyHTML('audio'); return; }
+    list.forEach((m) => known.set(m.id, m));
     el.innerHTML = list.map((m, i) => `
       <div class="track" data-i="${i}">
         <button class="play" aria-label="Phát">${icon('play', 20)}</button>
@@ -144,7 +196,7 @@
         </div>
         <span class="dur">${fmtDuration(m.duration)}</span>
         <div class="track-actions">
-          <button class="btn btn-ghost btn-sm" data-info>${icon('info', 16)} Copyright</button>
+          <a class="btn btn-ghost btn-sm" href="${esc(m.path)}" data-info>${icon('info', 16)} Copyright</a>
           <button class="btn btn-ghost btn-sm" data-license>Cấp phép</button>
         </div>
       </div>`).join('');
@@ -154,7 +206,12 @@
       if (!row) return;
       if (e.target.closest('[data-license]')) { LTB.open('contact'); return; }
       const item = list[Number(row.dataset.i)];
-      if (e.target.closest('[data-info]')) { openDetails(item); return; }
+      if (e.target.closest('[data-info]')) {
+        if (newTabClick(e)) return;
+        e.preventDefault();
+        openDetails(item);
+        return;
+      }
 
       const bar = e.target.closest('.progress');
       if (bar && current?.row === row && player.duration) {
@@ -210,6 +267,14 @@
       (kind === 'image' ? renderImages : renderAudio)(listEl, list);
     }
     draw();
+
+    // Vào thẳng link chi tiết (/images/ten-anh-<id>) → mở khung chi tiết của đúng file đó.
+    const id = (location.pathname.match(/^\/(?:images|audio)\/(?:.*-)?([0-9a-f]{16})$/) || [])[1];
+    if (id) {
+      const item = all.find((m) => m.id === id);
+      if (item) openDetails(item, { fromUrl: true });
+      else history.replaceState(null, '', LIST_PATH[kind]);
+    }
   }
 
   window.Media = { renderImages, renderAudio, mountLibrary };

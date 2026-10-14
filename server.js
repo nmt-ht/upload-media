@@ -76,10 +76,21 @@ app.post('/api/admin/logout', (req, res) => {
 });
 app.get('/api/admin/me', (req, res) => res.json({ admin: isAdmin(req) }));
 
+// ---------- Đường dẫn riêng cho từng ảnh / âm thanh: /images/ten-anh-<id>, /audio/ten-audio-<id> ----------
+const LIST_PATH = { image: '/images', audio: '/audio' };
+function slugify(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+}
+function itemPath(m) {
+  const slug = slugify(m.title);
+  return `${LIST_PATH[m.type]}/${slug ? slug + '-' : ''}${m.id}`;
+}
+
 // ---------- Public API ----------
 function publicItem(m) {
   const { uploadedAt, originalName, ...rest } = m;
-  return { ...COPYRIGHT_DEFAULTS, ...rest };
+  return { ...COPYRIGHT_DEFAULTS, ...rest, path: itemPath(m) };
 }
 function sorted(list) {
   return [...list].sort((a, b) =>
@@ -103,7 +114,8 @@ app.get('/api/media', (req, res) => {
 });
 
 // ---------- Admin API ----------
-app.get('/api/admin/media', requireAdmin, (req, res) => res.json(sorted(db.media).map((m) => ({ ...COPYRIGHT_DEFAULTS, ...m }))));
+app.get('/api/admin/media', requireAdmin, (req, res) =>
+  res.json(sorted(db.media).map((m) => ({ ...COPYRIGHT_DEFAULTS, ...m, path: itemPath(m) }))));
 
 const EXT = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
@@ -161,7 +173,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 function fmtBytes(n) {
-  return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(0)}MB` : `${Math.round(n / 1024)}KB`;
+  return n >= 1024 * 1024 ? `${+(n / 1024 / 1024).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
 }
 
 for (const kind of ['image', 'audio']) {
@@ -236,7 +248,7 @@ for (const kind of ['image', 'audio']) {
         console.error('Ghi db.json thất bại:', e);
         return res.status(500).json({ error: 'Đã nhận file nhưng chưa ghi được dữ liệu, vui lòng kiểm tra ổ đĩa máy chủ' });
       }
-      res.status(201).json(item);
+      res.status(201).json({ ...item, path: itemPath(item) });
     });
   });
 }
@@ -255,7 +267,7 @@ app.patch('/api/admin/media/:id', requireAdmin, async (req, res) => {
   Object.assign(patch, copyright.patch);
   const item = await db.updateMedia(req.params.id, patch);
   if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
-  res.json(item);
+  res.json({ ...item, path: itemPath(item) });
 });
 
 app.delete('/api/admin/media/:id', requireAdmin, async (req, res) => {
@@ -289,11 +301,53 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
 }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
 app.get('/policy/:slug', (req, res) => res.sendFile(path.join(ROOT, 'public', 'policy.html')));
+
+// Trang chi tiết: trả về trang kho tương ứng (media.js tự mở khung chi tiết theo URL), kèm thẻ
+// title / Open Graph của đúng file để link chia sẻ qua Zalo, Facebook… hiện tên và ảnh xem trước.
+const escAttr = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+for (const [type, page] of [['image', 'images.html'], ['audio', 'audio.html']]) {
+  app.get(`${LIST_PATH[type]}/:key`, async (req, res, next) => {
+    const id = (req.params.key.match(/(?:^|-)([0-9a-f]{16})$/) || [])[1];
+    const item = id && db.media.find((m) => m.id === id && m.type === type);
+    if (!item) return next();
+    const canonical = itemPath(item);
+    // Tiêu đề đã đổi → về link mới. 302 (không phải 301) vì trình duyệt nhớ 301 vĩnh viễn,
+    // đổi tiêu đề qua lại sẽ thành vòng lặp redirect.
+    if (req.path !== canonical) return res.redirect(302, canonical);
+
+    const origin = `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
+    const title = `${item.title} — LTB Media Network`;
+    const desc = item.description || (type === 'image' ? 'Hình ảnh có bản quyền — LTB Media Network' : 'Âm thanh có bản quyền — LTB Media Network');
+    const meta = [
+      `<link rel="canonical" href="${escAttr(origin + canonical)}">`,
+      `<meta name="description" content="${escAttr(desc)}">`,
+      `<meta property="og:type" content="${type === 'image' ? 'article' : 'music.song'}">`,
+      `<meta property="og:title" content="${escAttr(title)}">`,
+      `<meta property="og:description" content="${escAttr(desc)}">`,
+      `<meta property="og:url" content="${escAttr(origin + canonical)}">`,
+      `<meta property="og:image" content="${escAttr(origin + (type === 'image' ? item.url : '/img/logo.png'))}">`,
+      type === 'audio' ? `<meta property="og:audio" content="${escAttr(origin + item.url)}">` : '',
+    ].filter(Boolean).join('\n  ');
+    try {
+      const html = await fs.promises.readFile(path.join(ROOT, 'public', page), 'utf8');
+      // Giữ tiêu đề gốc của trang kho để media.js trả lại khi đóng khung chi tiết.
+      const pageTitle = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+      res.type('html').send(html
+        .replace(/<title>[^<]*<\/title>/, `<title>${escAttr(title)}</title>\n  <meta name="ltb-page-title" content="${pageTitle}">`)
+        .replace('</head>', `  ${meta}\n</head>`));
+    } catch (e) {
+      next(e);
+    }
+  });
+}
 app.use((req, res) => res.status(404).sendFile(path.join(ROOT, 'public', 'index.html')));
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`LTB Media Network đang chạy: http://localhost:${config.port}`);
   if (config.adminPassword === 'changeme') {
     console.warn('⚠  Đang dùng mật khẩu admin mặc định. Đặt biến môi trường ADMIN_PASSWORD trước khi đưa lên mạng.');
   }
 });
+// Mặc định Node huỷ request quá 5 phút — không đủ cho audio tới 1000 MB qua mạng chậm.
+// Phải khớp với client_body_timeout / proxy_*_timeout của Nginx (deploy/setup.sh).
+server.requestTimeout = 2 * 3600 * 1000;
