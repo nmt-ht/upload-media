@@ -9,12 +9,13 @@ Website giới thiệu + kho ảnh & âm thanh có bản quyền, kèm trang qu�
 | `/` | Trang chủ: giới thiệu, nội dung mới, liên hệ |
 | `/images` | Kho ảnh (lọc theo năm, tìm kiếm, xem phóng to) |
 | `/audio` | Kho âm thanh (nghe thử ngay trên trang) |
-| `/admin` | Quản trị: tải lên, sửa ngày đăng / tiêu đề, xoá, cài đặt liên hệ |
+| `/monitoring` | Content Monitoring: link vi phạm (thể loại, thời gian, nền tảng, trạng thái), lọc theo thể loại, 12 link mỗi trang |
+| `/admin` | Quản trị: tải lên, sửa ngày đăng / tiêu đề, xoá, link Monitoring, chính sách, cài đặt, sao lưu |
 
 Nút trên trang chủ (theo mockup):
 - **Đăng ký bảo vệ bản quyền** → popup WhatsApp · Zalo · Telegram
 - **Khám phá kho tài nguyên** → popup Stock Images · Licensed Audio
-- **Content Monitoring** → mở link nhập trong *Quản trị → Cài đặt* (chưa nhập thì báo "đang cập nhật")
+- **Content Monitoring** → trang `/monitoring`; link vi phạm nhập ở *Quản trị → Monitoring* (thêm từng link hoặc dán nhiều link, bấm nhãn để đổi Đang xử lý / Đã xử lý)
 - **Stock Images / Licensed Audio** → kho ảnh / kho âm thanh
 
 ## Chạy thử trên máy
@@ -34,7 +35,7 @@ Mở http://localhost:3000, trang quản trị ở http://localhost:3000/admin.
 | Loại | Định dạng | Kích thước / thời lượng | Dung lượng tối đa |
 |---|---|---|---|
 | Ảnh | JPG, PNG, WebP | đúng 1920×1080 px | 1,5 MB |
-| Âm thanh | MP3, WAV, M4A, OGG, FLAC | 10–15 giây | 1000 MB |
+| Âm thanh | MP3, WAV, M4A, OGG, FLAC | tối đa 5 phút | 1000 MB |
 
 Server kiểm tra lại định dạng, dung lượng, kích thước ảnh và ngày đăng; trang quản trị kiểm tra trước khi gửi và báo lỗi cụ thể.
 
@@ -64,10 +65,11 @@ Không giới hạn số lượng trong code; giới hạn thực tế là dung 
 | Loại | Dung lượng mỗi file | Số file / 1 GB |
 |---|---|---|
 | Ảnh 1920×1080 | thường 0,3–1,5 MB | ~700–3.000 |
-| Âm thanh MP3 10–15 giây | ~0,2–0,6 MB | ~1.700–5.000 |
-| Âm thanh WAV 10–15 giây | ~1,7–2,6 MB | ~400–600 |
+| Âm thanh MP3 320 kbps, 1–5 phút | ~2,4–12 MB | ~85–420 |
+| Âm thanh WAV 44,1 kHz / 16-bit, 1–5 phút | ~10–50 MB | ~20–100 |
+| Âm thanh WAV 48 kHz / 24-bit, 1–5 phút | ~16–82 MB | ~12–60 |
 
-Giới hạn 1000 MB cho audio rộng hơn nhiều so với một file 10–15 giây thực tế (WAV 24-bit/96 kHz 15 giây cũng chỉ ~9 MB); file lớn mất nhiều thời gian tải lên và chiếm ổ đĩa tương ứng.
+Giới hạn 1000 MB cho audio đủ cho cả file WAV 5 phút chất lượng cao nhất (96 kHz / 24-bit 5 phút ~165 MB); file lớn mất nhiều thời gian tải lên và chiếm ổ đĩa tương ứng.
 
 Trang kho ảnh / âm thanh hiện tải toàn bộ danh sách một lần, chạy mượt tới khoảng vài nghìn file mỗi loại; nhiều hơn nên thêm phân trang.
 

@@ -26,11 +26,13 @@
     telegram: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
     zalo: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 9h4l-4 6h4"/><path d="M15 9v6"/>',
     pin: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
+    video: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
     user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
     calendarCheck: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>',
     fingerprint: '<path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>',
     fileCheck: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/>',
+    fileSearch: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="11.5" cy="14.5" r="2.5"/><path d="m13.3 16.3 1.7 1.7"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
     mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
     disc: '<circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/>',
@@ -205,6 +207,52 @@
     }).join('');
   }
 
+  // Nền tảng của một link (trang Content Monitoring): { key, name, host, icon }.
+  const PLATFORMS = [
+    [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube', 'YouTube'],
+    [/(^|\.)(facebook\.com|fb\.com|fb\.watch)$/, 'facebook', 'Facebook'],
+    [/(^|\.)tiktok\.com$/, 'tiktok', 'TikTok'],
+    [/(^|\.)instagram\.com$/, 'instagram', 'Instagram'],
+    [/(^|\.)(twitter\.com|x\.com)$/, 'x', 'X (Twitter)'],
+  ];
+  function platformOf(url) {
+    let host = '';
+    try { host = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+    const hit = PLATFORMS.find(([re]) => re.test(host));
+    const key = hit ? hit[1] : 'other';
+    return { key, name: hit ? hit[2] : host || 'Website', host, icon: BRAND[key] ? brandIcon(key, 18) : icon('globe', 18) };
+  }
+
+  // Nhãn của Content Monitoring (giá trị lưu trong dữ liệu → chữ hiển thị).
+  const MON = {
+    type: {
+      video: { name: 'Video', icon: 'video', violation: 'Sao chép video' },
+      audio: { name: 'Âm thanh', icon: 'audio', violation: 'Sử dụng âm thanh trái phép' },
+      image: { name: 'Hình ảnh', icon: 'image', violation: 'Sử dụng hình ảnh trái phép' },
+    },
+    platform: { youtube: 'YouTube', facebook: 'Facebook', tiktok: 'TikTok', other: 'Khác' },
+    status: { processing: 'Đang xử lý', resolved: 'Đã xử lý' },
+  };
+  // '2026-10-15T14:30' → '15/10/2026 · 14:30'
+  const fmtDateTime = (at) => (at ? `${fmtDate(at)} · ${at.slice(11, 16)}` : '');
+
+  // Thanh phân trang: « Trước 1 … 4 5 6 … 20 Sau ». hrefFor(n) → link của trang n.
+  function pagerHTML(page, pages, hrefFor) {
+    if (pages <= 1) return '';
+    const nums = [...new Set([1, page - 1, page, page + 1, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+    const parts = [];
+    nums.forEach((n, i) => {
+      if (i && n - nums[i - 1] > 1) parts.push('<span class="pager-gap">…</span>');
+      parts.push(n === page
+        ? `<span class="pager-num" aria-current="page">${n}</span>`
+        : `<a class="pager-num" href="${esc(hrefFor(n))}" data-page="${n}">${n}</a>`);
+    });
+    const nav = (n, label, rel) => (n < 1 || n > pages
+      ? `<span class="pager-step" aria-disabled="true">${label}</span>`
+      : `<a class="pager-step" href="${esc(hrefFor(n))}" data-page="${n}" rel="${rel}">${label}</a>`);
+    return `${nav(page - 1, '« Trước', 'prev')}${parts.join('')}${nav(page + 1, 'Sau »', 'next')}`;
+  }
+
   // ---------- Layout ----------
   const page = document.body.dataset.page || '';
   const NAV = [
@@ -305,20 +353,13 @@
     }).catch(() => {});
   }
 
-  document.addEventListener('click', async (e) => {
+  document.addEventListener('click', (e) => {
     const opener = e.target.closest('[data-open]');
     if (opener) { e.preventDefault(); open(opener.dataset.open); return; }
     if (e.target.closest('[data-close]')) { closeAll(); return; }
-    const mon = e.target.closest('[data-monitoring]');
-    if (mon) {
-      e.preventDefault();
-      const s = await settingsReady;
-      if (s.monitoringUrl) window.open(s.monitoringUrl, '_blank', 'noopener');
-      else toast('Tính năng Content Monitoring đang được cập nhật.');
-    }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
   document.querySelectorAll('.drawer a').forEach((a) => a.addEventListener('click', closeAll));
 
-  window.LTB = { icon, esc, formatText, richText, firstLine, fmtDate, fmtDateEn, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML };
+  window.LTB = { icon, esc, formatText, richText, firstLine, fmtDate, fmtDateEn, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML, platformOf, pagerHTML, MON, fmtDateTime, brandIcon };
 })();

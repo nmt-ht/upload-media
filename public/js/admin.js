@@ -1,5 +1,5 @@
 (function () {
-  const { icon, esc, fmtDate, fmtDuration, fmtBytes, toast } = LTB;
+  const { icon, esc, fmtDate, fmtDuration, fmtBytes, toast, platformOf, pagerHTML, MON, fmtDateTime, brandIcon } = LTB;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
@@ -47,6 +47,7 @@
     $$('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
     if (b.dataset.tab === 'manage') loadItems();
     if (b.dataset.tab === 'backups') loadBackups();
+    if (b.dataset.tab === 'monitoring') loadMonitoring();
   });
 
   // ---------- Thông tin bản quyền (khung Copyright Information ngoài trang) ----------
@@ -113,6 +114,9 @@
   }
   form.publishedAt.addEventListener('input', showDatePreview);
 
+  // "dài 1:30–5:00", hoặc "dài tối đa 5:00" khi không giới hạn dưới (minDuration = 0).
+  const durationRule = (l) => (l.minDuration > 0
+    ? `dài ${fmtDuration(l.minDuration)}–${fmtDuration(l.maxDuration)}` : `dài tối đa ${fmtDuration(l.maxDuration)}`);
   function ruleText() {
     if (!limits) return '';
     if (kind === 'image') {
@@ -120,7 +124,7 @@
       return `JPG / PNG / WebP · đúng ${l.width}×${l.height}px · tối đa ${fmtBytes(l.maxBytes)}`;
     }
     const l = limits.audio;
-    return `MP3 / WAV / M4A / OGG / FLAC · dài ${l.minDuration}–${l.maxDuration} giây · tối đa ${fmtBytes(l.maxBytes)}`;
+    return `MP3 / WAV / M4A / OGG / FLAC · ${durationRule(l)} · dung lượng tối đa ${fmtBytes(l.maxBytes)}`;
   }
   function setKind(k) {
     kind = k;
@@ -173,7 +177,7 @@
         a.src = url;
       });
       const durOk = duration >= l.minDuration - 0.25 && duration <= l.maxDuration + 0.25;
-      add(durOk, `Thời lượng: ${Number.isFinite(duration) ? duration.toFixed(1) + 's' : 'không đọc được'} (yêu cầu ${l.minDuration}–${l.maxDuration}s)`);
+      add(durOk, `Thời lượng: ${Number.isFinite(duration) ? fmtDuration(duration) : 'không đọc được'} (yêu cầu ${durationRule(l)})`);
       $('#preview').innerHTML = `<audio controls src="${url}"></audio><ul class="checks">${checks.join('')}</ul>`;
     }
     $('#preview').hidden = false;
@@ -295,6 +299,175 @@
         drawItems();
         toast('Đã xoá');
       }
+    } catch (err) { toast(err.message, true); }
+  });
+
+  // ---------- Content Monitoring ----------
+  const monForm = $('#mon-add');
+  const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const monSel = { type: 'video', platform: 'youtube', status: 'processing' };
+  const MON_OPTS = {
+    type: Object.entries(MON.type).map(([k, t]) => [k, `${icon(t.icon, 18)} ${t.name}`]),
+    platform: Object.entries(MON.platform).map(([k, name]) => [k, `${k === 'other' ? icon('globe', 18) : brandIcon(k, 18)} ${name}`]),
+    status: Object.entries(MON.status).map(([k, name]) => [k, name]),
+  };
+  // Nút chọn (Thể loại / Nền tảng / Trạng thái) của form thêm link.
+  function drawMonRadios() {
+    for (const el of $$('[data-radio]', monForm)) {
+      const key = el.dataset.radio;
+      el.innerHTML = MON_OPTS[key].map(([v, label]) =>
+        `<button type="button" data-value="${v}" aria-pressed="${monSel[key] === v}">${label}</button>`).join('');
+    }
+  }
+  monForm.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-radio] [data-value]');
+    if (!b) return;
+    monSel[b.closest('[data-radio]').dataset.radio] = b.dataset.value;
+    drawMonRadios();
+  });
+  // Dán link YouTube / Facebook / TikTok → tự chọn nền tảng.
+  const detectPlatform = (url) => {
+    const key = platformOf(url).key;
+    return key !== 'other' && MON.platform[key] ? key : null;
+  };
+  monForm.url.addEventListener('input', () => {
+    const p = detectPlatform(monForm.url.value);
+    if (p && p !== monSel.platform) { monSel.platform = p; drawMonRadios(); }
+  });
+
+  let monPage = 1;
+  let monQ = '';
+  let monStatus = '';
+  const monNames = { type: Object.fromEntries(Object.entries(MON.type).map(([k, t]) => [k, t.name])), platform: MON.platform, status: MON.status };
+  const monOptions = (key, cur) => Object.entries(monNames[key])
+    .map(([k, name]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${name}</option>`).join('');
+  async function loadMonitoring() {
+    if (!monForm.at.value) monForm.at.value = nowLocal();
+    if (!$('[data-radio] button', monForm)) drawMonRadios();
+    try {
+      const d = await api(`/api/admin/monitoring?${new URLSearchParams({ page: monPage, q: monQ, status: monStatus })}`);
+      monPage = d.page;
+      const s = d.stats;
+      $('#mon-admin-count').textContent = s.total
+        ? `Tổng ${s.total} link · ${s.processing} đang xử lý · ${s.resolved} đã xử lý${d.pages > 1 ? ` — trang ${d.page}/${d.pages}` : ''}` : '';
+      $('#mon-items').innerHTML = d.items.length ? d.items.map((m) => {
+        const t = MON.type[m.type] || MON.type.video;
+        const other = m.status === 'resolved' ? 'processing' : 'resolved';
+        return `
+        <div class="mon-row" data-id="${esc(m.id)}">
+          <span class="mon-row-icon" title="${t.name}">${icon(t.icon, 22)}</span>
+          <div class="mon-row-body">
+            <a class="mon-link" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">${esc(m.url.replace(/^https?:\/\/(www\.)?/, ''))}</a>
+            <div class="mon-row-meta">${t.violation} · ${MON.platform[m.platform] || ''} · ${fmtDateTime(m.at)}</div>
+          </div>
+          <div class="mon-row-actions">
+            <button class="mon-status st-${m.status}" data-toggle="${other}" title="Bấm để chuyển sang &quot;${MON.status[other]}&quot;">${MON.status[m.status]}</button>
+            <button class="btn btn-ghost btn-sm" data-edit>Sửa</button>
+            <button class="btn btn-danger btn-sm" data-del aria-label="Xoá">${icon('trash', 16)}</button>
+          </div>
+          <form class="mon-row-edit" hidden>
+            <label class="field">Link vi phạm <input class="input" type="url" name="url" value="${esc(m.url)}" required></label>
+            <div class="row4">
+              <label class="field">Thể loại <select class="input" name="type">${monOptions('type', m.type)}</select></label>
+              <label class="field">Nền tảng <select class="input" name="platform">${monOptions('platform', m.platform)}</select></label>
+              <label class="field">Thời gian <input class="input" type="datetime-local" name="at" value="${esc(m.at)}" required></label>
+              <label class="field">Trạng thái <select class="input" name="status">${monOptions('status', m.status)}</select></label>
+            </div>
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" type="button" data-cancel>Huỷ</button>
+              <button class="btn btn-primary btn-sm" type="submit">Lưu</button>
+            </div>
+          </form>
+        </div>`;
+      }).join('') : `<div class="empty">${monQ || monStatus ? 'Không có link nào khớp bộ lọc.' : 'Chưa có link vi phạm nào.'}</div>`;
+      $('#mon-admin-pager').innerHTML = pagerHTML(d.page, d.pages, (n) => `#trang-${n}`);
+    } catch (err) { toast(err.message, true); }
+  }
+  async function addMonitoring(items) {
+    const r = await api('/api/admin/monitoring', { method: 'POST', body: JSON.stringify({ items }) });
+    toast(r.added
+      ? `Đã thêm ${r.added} link${r.skipped.length ? ` · bỏ qua ${r.skipped.length} link đã có` : ''}`
+      : 'Link đã có trong danh sách, không thêm gì.', !r.added);
+    monPage = 1;
+    loadMonitoring();
+    return r.added;
+  }
+  monForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      if (await addMonitoring([{ url: monForm.url.value, at: monForm.at.value, ...monSel }])) {
+        monForm.url.value = '';
+        monForm.url.focus();
+      }
+    } catch (err) { toast(err.message, true); }
+  });
+  // Dán nhiều link: dùng thể loại / thời gian / trạng thái đang chọn ở form trên, nền tảng nhận theo từng link.
+  $('#mon-bulk').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const urls = e.target.lines.value.split('\n').map((l) => l.trim()).filter(Boolean);
+    const bad = urls.findIndex((u) => !/^https?:\/\//i.test(u));
+    if (bad >= 0) { toast(`Dòng ${bad + 1} không phải link (cần bắt đầu bằng http:// hoặc https://)`, true); return; }
+    if (!urls.length) { toast('Chưa có link nào', true); return; }
+    const at = monForm.at.value || nowLocal();
+    try {
+      await addMonitoring(urls.map((url) => ({ url, at, ...monSel, platform: detectPlatform(url) || monSel.platform })));
+      e.target.lines.value = '';
+    } catch (err) { toast(err.message, true); }
+  });
+  let monTimer;
+  $('#mon-q').addEventListener('input', (e) => {
+    clearTimeout(monTimer);
+    monTimer = setTimeout(() => { monQ = e.target.value.trim(); monPage = 1; loadMonitoring(); }, 300);
+  });
+  $('#mon-filter').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-status]');
+    if (!c) return;
+    monStatus = c.dataset.status;
+    monPage = 1;
+    $$('#mon-filter .chip').forEach((b) => b.setAttribute('aria-pressed', b === c));
+    loadMonitoring();
+  });
+  $('#mon-admin-pager').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-page]');
+    if (!a) return;
+    e.preventDefault();
+    monPage = Number(a.dataset.page);
+    loadMonitoring().then(() => $('#mon-items').scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  });
+  const patchMonitoring = (id, body) =>
+    api(`/api/admin/monitoring/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+  $('#mon-items').addEventListener('click', async (e) => {
+    const row = e.target.closest('.mon-row');
+    if (!row) return;
+    const id = row.dataset.id;
+    const edit = $('.mon-row-edit', row);
+    try {
+      const toggle = e.target.closest('[data-toggle]');
+      if (toggle) {
+        await patchMonitoring(id, { status: toggle.dataset.toggle });
+        toast(`Đã chuyển sang "${MON.status[toggle.dataset.toggle]}"`);
+        loadMonitoring();
+      } else if (e.target.closest('[data-edit]')) {
+        edit.hidden = !edit.hidden;
+      } else if (e.target.closest('[data-cancel]')) {
+        edit.reset();
+        edit.hidden = true;
+      } else if (e.target.closest('[data-del]')) {
+        if (!confirm(`Xoá link "${$('.mon-link', row).textContent}" khỏi trang Content Monitoring?`)) return;
+        await api(`/api/admin/monitoring/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        toast('Đã xoá');
+        loadMonitoring();
+      }
+    } catch (err) { toast(err.message, true); }
+  });
+  $('#mon-items').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await patchMonitoring(f.closest('.mon-row').dataset.id,
+        Object.fromEntries(['url', 'type', 'platform', 'at', 'status'].map((k) => [k, f[k].value])));
+      toast('Đã lưu');
+      loadMonitoring();
     } catch (err) { toast(err.message, true); }
   });
 

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Content Monitoring — LTB Media Network</title>
+  <meta name="description" content="Danh sách nội dung vi phạm bản quyền LTB Media Network đang theo dõi và xử lý trên các nền tảng số.">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="icon" type="image/png" href="/img/logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="monitoring">
+  <header id="site-header"></header>
+  <main class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Content Monitoring</div>
+      <h1>Theo dõi nội dung vi phạm</h1>
+      <p>Danh sách nội dung vi phạm bản quyền LTB Media Network đang theo dõi và xử lý trên các nền tảng số.</p>
+    </div>
+    <div class="mon-stats" id="mon-stats"></div>
+    <form class="toolbar" id="mon-search" role="search">
+      <input class="search" type="search" name="q" placeholder="Tìm theo link…" aria-label="Tìm theo link">
+      <div class="chips" id="mon-types" aria-label="Lọc theo thể loại"></div>
+    </form>
+    <p class="muted" id="mon-count" style="font-size:14px;margin:0 0 14px"></p>
+    <div class="mon-grid" id="mon-list"></div>
+    <nav class="pager" id="mon-pager" aria-label="Phân trang"></nav>
+
+    <section class="mon-process" aria-labelledby="process-title">
+      <div class="eyebrow">Quy trình</div>
+      <h2 id="process-title">Quy trình giám sát và xử lý</h2>
+      <ol class="proc-steps">
+        <li class="proc-step">
+          <span class="proc-icon" data-icon="fileCheck"></span>
+          <div><span class="proc-no">Bước 1</span><h3>Tiếp nhận nội dung gốc</h3>
+            <p>Khách hàng cung cấp liên kết và thông tin xác minh quyền sở hữu.</p></div>
+        </li>
+        <li class="proc-step">
+          <span class="proc-icon" data-icon="scan"></span>
+          <div><span class="proc-no">Bước 2</span><h3>Theo dõi và phát hiện</h3>
+            <p>Tìm kiếm các trường hợp có dấu hiệu sao chép trong phạm vi giám sát.</p></div>
+        </li>
+        <li class="proc-step">
+          <span class="proc-icon" data-icon="fileSearch"></span>
+          <div><span class="proc-no">Bước 3</span><h3>Xác minh và lập báo cáo</h3>
+            <p>Tổng hợp bằng chứng, liên kết, nền tảng và thời điểm ghi nhận.</p></div>
+        </li>
+        <li class="proc-step">
+          <span class="proc-icon" data-icon="shield"></span>
+          <div><span class="proc-no">Bước 4</span><h3>Hỗ trợ xử lý vi phạm</h3>
+            <p>Hỗ trợ gửi yêu cầu gỡ bỏ hoặc thực hiện các bước xử lý theo phạm vi dịch vụ.</p></div>
+        </li>
+      </ol>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      const { icon, esc, MON, fmtDateTime, pagerHTML } = LTB;
+      document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon, 24); });
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q') || '';
+      const type = MON.type[params.get('type')] ? params.get('type') : '';
+      const form = document.getElementById('mon-search');
+      form.q.value = q;
+
+      // Địa chỉ trang khi đổi trang / bộ lọc — giữ các bộ lọc đang chọn.
+      const hrefFor = (page, over = {}) => {
+        const p = new URLSearchParams();
+        const v = { q, type, page, ...over };
+        if (v.q) p.set('q', v.q);
+        if (v.type) p.set('type', v.type);
+        if (v.page > 1) p.set('page', v.page);
+        const qs = p.toString();
+        return '/monitoring' + (qs ? '?' + qs : '');
+      };
+      document.getElementById('mon-types').innerHTML = [['', 'Tất cả'], ...Object.entries(MON.type).map(([k, t]) => [k, t.name])]
+        .map(([k, name]) => `<a class="chip" href="${hrefFor(1, { type: k })}" aria-pressed="${k === type}">${name}</a>`).join('');
+      form.addEventListener('submit', (e) => { e.preventDefault(); location.href = hrefFor(1, { q: form.q.value.trim() }); });
+
+      const list = document.getElementById('mon-list');
+      let data;
+      try {
+        data = await fetch(`/api/monitoring?${new URLSearchParams({ q, type, page: params.get('page') || 1 })}`).then((r) => r.json());
+      } catch {
+        list.innerHTML = '<div class="empty">Không tải được danh sách, vui lòng thử lại.</div>';
+        return;
+      }
+      const { items, total, page, pages, stats } = data;
+      // Trang vượt quá số trang (vd link cũ) → server trả trang cuối; sửa lại địa chỉ cho khớp.
+      if (String(page) !== (params.get('page') || '1')) history.replaceState(null, '', hrefFor(page));
+
+      if (stats.total) {
+        document.getElementById('mon-stats').innerHTML = `
+          <div class="stat"><b>${stats.total}</b><span>Link vi phạm</span></div>
+          <div class="stat"><b class="st-processing">${stats.processing}</b><span>${MON.status.processing}</span></div>
+          <div class="stat"><b class="st-resolved">${stats.resolved}</b><span>${MON.status.resolved}</span></div>`;
+      }
+      document.getElementById('mon-count').textContent = (q || type) && total
+        ? `${total} link${pages > 1 ? ` · trang ${page}/${pages}` : ''}` : pages > 1 ? `Trang ${page}/${pages}` : '';
+
+      if (!items.length) {
+        list.innerHTML = `<div class="empty">${q || type ? 'Không có link nào khớp bộ lọc.' : 'Danh sách đang được cập nhật.'}</div>`;
+      } else {
+        list.innerHTML = items.map((m) => {
+          const t = MON.type[m.type] || MON.type.video;
+          const shown = m.url.replace(/^https?:\/\/(www\.)?/, '');
+          return `
+            <article class="mon-card">
+              <header class="mon-card-head">
+                <span class="mon-type">${icon(t.icon, 22)} ${t.name}</span>
+                <span class="mon-status st-${m.status}">${MON.status[m.status] || ''}</span>
+              </header>
+              <div class="mon-label">Link vi phạm</div>
+              <a class="mon-link" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(shown)}</a>
+              <hr>
+              <div class="mon-label">Thể loại vi phạm</div>
+              <span class="mon-chip">${t.violation}</span>
+              <div class="mon-facts">
+                <div><div class="mon-label">Thời gian</div><strong>${fmtDateTime(m.at)}</strong></div>
+                <div><div class="mon-label">Nền tảng</div><strong>${MON.platform[m.platform] || ''}</strong></div>
+              </div>
+            </article>`;
+        }).join('');
+      }
+      document.getElementById('mon-pager').innerHTML = pagerHTML(page, pages, (n) => hrefFor(n));
+    })();
+  </script>
+</body>
+</html>

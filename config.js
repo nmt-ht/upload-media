@@ -19,8 +19,8 @@ module.exports = {
 
   audio: {
     maxBytes: 1000 * MB,
-    minDuration: 10, // giây
-    maxDuration: 15, // giây
+    minDuration: 0,   // giây — 0 = không giới hạn dưới
+    maxDuration: 300, // giây (5:00)
     mimes: [
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
       'audio/ogg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/x-flac', 'audio/webm',

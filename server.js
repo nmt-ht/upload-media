@@ -175,6 +175,11 @@ const COPYRIGHT_DEFAULTS = {
   workTitle: '', composer: '', performer: '', recordingOwner: '', audioSpec: '',
 };
 
+// 90 → "1:30"
+function mmss(sec) {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -231,7 +236,8 @@ for (const kind of ['image', 'audio']) {
         const { minDuration, maxDuration } = config.audio;
         if (!(duration > 0)) return fail(400, 'Không xác định được thời lượng audio');
         if (duration < minDuration - 0.25 || duration > maxDuration + 0.25) {
-          return fail(400, `Audio phải dài ${minDuration}–${maxDuration}s (file đang ${duration.toFixed(1)}s)`);
+          const rule = minDuration > 0 ? `dài ${mmss(minDuration)}–${mmss(maxDuration)}` : `dài tối đa ${mmss(maxDuration)}`;
+          return fail(400, `Audio phải ${rule} (file đang ${mmss(duration)})`);
         }
         item.duration = Math.round(duration * 10) / 10;
         // Thông số tự đọc từ file; admin nhập tay thì giữ giá trị admin.
@@ -377,6 +383,89 @@ app.post('/api/admin/backups/:name/restore', requireAdmin, async (req, res) => {
   } finally {
     restoring = false;
   }
+});
+
+// ---------- Content Monitoring (danh sách link vi phạm, trang /monitoring) ----------
+// Mỗi mục: { id, url, type, platform, at: 'YYYY-MM-DDTHH:MM' (giờ VN), status, addedAt }
+const MON = {
+  type: ['video', 'audio', 'image'],
+  platform: ['youtube', 'facebook', 'tiktok', 'other'],
+  status: ['processing', 'resolved'],
+};
+const nowVN = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 16).replace(' ', 'T');
+function validDateTime(s) {
+  const m = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d$/.exec(s || '');
+  return !!m && validDate(m[1]);
+}
+// ?page=2&q=...&type=video&status=resolved&platform=youtube → { items, total, page, pages, perPage, stats }
+function monitoringPage(req, perPage) {
+  const q = String(req.query.q || '').trim().toLowerCase().slice(0, 200);
+  const all = db.monitoring;
+  const list = all.filter((m) => (!q || m.url.toLowerCase().includes(q))
+    && ['type', 'status', 'platform'].every((k) => !req.query[k] || m[k] === req.query[k]));
+  const pages = Math.max(1, Math.ceil(list.length / perPage));
+  const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1));
+  const stats = { total: all.length, processing: 0, resolved: 0 };
+  for (const m of all) stats[m.status]++;
+  return { items: list.slice((page - 1) * perPage, page * perPage), total: list.length, page, pages, perPage, stats };
+}
+// Kiểm tra dữ liệu admin nhập. partial: chỉ kiểm tra các trường được gửi (khi sửa). Trả về { value } hoặc { error }.
+function monitoringInput(b, { partial = false } = {}) {
+  const value = {};
+  if (!partial || b.url !== undefined) {
+    let u;
+    try { u = new URL(String(b.url || '').trim()); } catch { return { error: 'Link vi phạm không hợp lệ (cần bắt đầu bằng http:// hoặc https://)' }; }
+    if (!/^https?:$/.test(u.protocol)) return { error: 'Link vi phạm phải bắt đầu bằng http:// hoặc https://' };
+    value.url = u.href.slice(0, 2000);
+  }
+  const labels = { type: 'Thể loại vi phạm', platform: 'Nền tảng', status: 'Trạng thái' };
+  for (const k of ['type', 'platform', 'status']) {
+    if (partial && b[k] === undefined) continue;
+    if (!MON[k].includes(b[k])) return { error: `${labels[k]} không hợp lệ` };
+    value[k] = b[k];
+  }
+  if (b.at !== undefined && b.at !== '') {
+    if (!validDateTime(b.at)) return { error: 'Thời gian không hợp lệ' };
+    value.at = b.at;
+  }
+  return { value };
+}
+
+app.get('/api/monitoring', (req, res) => res.json(monitoringPage(req, 12)));
+app.get('/api/admin/monitoring', requireAdmin, (req, res) => res.json(monitoringPage(req, 20)));
+// Thêm một hoặc nhiều link: { items: [{ url, type, platform, at?, status? }] }. Link đã có trong danh sách thì bỏ qua.
+app.post('/api/admin/monitoring', requireAdmin, async (req, res) => {
+  const input = Array.isArray(req.body?.items) ? req.body.items.slice(0, 1000) : [];
+  if (!input.length) return res.status(400).json({ error: 'Chưa có link nào' });
+  const known = new Set(db.monitoring.map((m) => m.url));
+  const added = [];
+  const skipped = [];
+  // Danh sách hiện mới nhất trước; lùi addedAt 1 ms mỗi dòng để các link dán cùng lúc giữ đúng thứ tự đã dán.
+  const now = Date.now();
+  for (const [i, raw] of input.entries()) {
+    const { value, error } = monitoringInput({ status: 'processing', ...raw });
+    if (error) return res.status(400).json({ error: input.length > 1 ? `Dòng ${i + 1}: ${error}` : error });
+    if (known.has(value.url)) { skipped.push(value.url); continue; }
+    known.add(value.url);
+    added.push({ id: crypto.randomBytes(8).toString('hex'), at: nowVN(), ...value, addedAt: new Date(now - i).toISOString() });
+  }
+  if (added.length) await db.addMonitoring(added);
+  res.status(added.length ? 201 : 200).json({ added: added.length, skipped });
+});
+app.patch('/api/admin/monitoring/:id', requireAdmin, async (req, res) => {
+  const { value, error } = monitoringInput(req.body || {}, { partial: true });
+  if (error) return res.status(400).json({ error });
+  if (value.url && db.monitoring.some((m) => m.url === value.url && m.id !== req.params.id)) {
+    return res.status(409).json({ error: 'Link này đã có trong danh sách' });
+  }
+  const item = await db.updateMonitoring(req.params.id, value);
+  if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
+  res.json(item);
+});
+app.delete('/api/admin/monitoring/:id', requireAdmin, async (req, res) => {
+  const item = await db.removeMonitoring(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Không tìm thấy' });
+  res.json({ ok: true });
 });
 
 app.get('/api/admin/policies', requireAdmin, (req, res) =>

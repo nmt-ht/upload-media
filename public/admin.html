@@ -107,6 +107,28 @@
     .rte-wrap .ql-snow .ql-tooltip.ql-editing a.ql-action::after { content: 'Lưu'; }
     .rte-wrap .ql-snow .ql-tooltip a.ql-remove::before { content: 'Bỏ link'; }
     .policy-editor .actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .field-group { display: grid; gap: 6px; font-size: 14px; font-weight: 600; align-content: start; }
+    .seg3 { grid-template-columns: repeat(3, 1fr); }
+    .seg4 { grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 560px) { .seg4 { grid-template-columns: repeat(4, 1fr); } }
+    .mon-bulk { margin: 16px 0 4px; }
+    .mon-bulk summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent); padding: 4px 0; }
+    .mon-bulk[open] summary { margin-bottom: 10px; }
+    .mon-rows { display: grid; gap: 8px; }
+    .mon-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+    .mon-row-icon { color: var(--accent); display: grid; place-items: center; }
+    .mon-row-body { min-width: 0; }
+    .mon-row-body .mon-link { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mon-row-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .mon-row-actions { display: flex; gap: 6px; align-items: center; grid-column: 1 / -1; justify-content: flex-end; }
+    @media (min-width: 640px) { .mon-row-actions { grid-column: auto; } }
+    .mon-row button.mon-status { border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; }
+    .mon-row button.mon-status:hover { outline: 1px solid currentColor; }
+    .mon-row-edit { grid-column: 1 / -1; display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .mon-row-edit .row4 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    @media (min-width: 640px) { .mon-row-edit .row4 { grid-template-columns: repeat(4, 1fr); } }
+    .mon-row-edit .input { min-height: 40px; padding: 6px 10px; font-size: 14px; }
+    .mon-row-edit .field { font-size: 13px; }
     .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
     .btn-danger:hover { background: rgba(255, 92, 92, .1); }
     .bk-stats { display: grid; gap: 10px; margin-bottom: 16px; }
@@ -150,6 +172,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="upload" aria-selected="true"><span data-icon="upload"></span> Tải lên</button>
       <button role="tab" data-tab="manage" aria-selected="false"><span data-icon="image"></span> Quản lý kho</button>
+      <button role="tab" data-tab="monitoring" aria-selected="false"><span data-icon="scan"></span> Monitoring</button>
       <button role="tab" data-tab="policies" aria-selected="false"><span data-icon="fileCheck"></span> Chính sách</button>
       <button role="tab" data-tab="settings" aria-selected="false"><span data-icon="settings"></span> Cài đặt</button>
       <button role="tab" data-tab="backups" aria-selected="false"><span data-icon="history"></span> Sao lưu</button>
@@ -214,6 +237,43 @@
       <div class="policy-editors" id="policy-editors"></div>
     </section>
 
+    <!-- Content Monitoring -->
+    <section class="panel" data-pane="monitoring" hidden>
+      <p class="hint" style="margin:0 0 14px">Các link này hiện ở trang <a href="/monitoring" target="_blank"><b>Content Monitoring</b></a>
+        (thẻ Content Monitoring ở trang chủ), mới nhất ở trên. Link trùng với link đã có sẽ được bỏ qua.</p>
+      <form class="form" id="mon-add">
+        <label class="field">Link vi phạm
+          <input class="input" type="url" name="url" required placeholder="https://www.youtube.com/watch?v=..."></label>
+        <div class="field-group">Thể loại vi phạm <div class="seg seg3" data-radio="type"></div></div>
+        <div class="field-group">Nền tảng <small class="hint">— tự chọn theo link, đổi lại được</small> <div class="seg seg4" data-radio="platform"></div></div>
+        <div class="row2">
+          <label class="field">Thời gian <input class="input" type="datetime-local" name="at" required></label>
+          <div class="field-group">Trạng thái <div class="seg" data-radio="status"></div></div>
+        </div>
+        <button class="btn btn-primary" type="submit">Thêm link vi phạm</button>
+      </form>
+      <details class="mon-bulk">
+        <summary>Thêm nhiều link cùng lúc</summary>
+        <form class="form" id="mon-bulk">
+          <p class="hint" style="margin:0">Mỗi dòng một link. Dùng <b>Thể loại</b>, <b>Thời gian</b>, <b>Trạng thái</b> đang chọn ở form trên;
+            nền tảng tự nhận theo từng link (link ngoài YouTube / Facebook / TikTok lấy nền tảng đang chọn).</p>
+          <textarea class="input" name="lines" rows="6" placeholder="https://www.youtube.com/watch?v=...&#10;https://www.tiktok.com/@.../video/..."></textarea>
+          <button class="btn btn-ghost" type="submit">Thêm tất cả</button>
+        </form>
+      </details>
+      <div class="toolbar">
+        <div class="chips" id="mon-filter">
+          <button class="chip" data-status="" aria-pressed="true">Tất cả</button>
+          <button class="chip" data-status="processing" aria-pressed="false">Đang xử lý</button>
+          <button class="chip" data-status="resolved" aria-pressed="false">Đã xử lý</button>
+        </div>
+        <input class="search" id="mon-q" type="search" placeholder="Tìm theo link…" aria-label="Tìm link">
+      </div>
+      <p class="hint" id="mon-admin-count" style="margin:0 0 10px"></p>
+      <div class="mon-rows" id="mon-items"></div>
+      <nav class="pager" id="mon-admin-pager" aria-label="Phân trang"></nav>
+    </section>
+
     <!-- Sao lưu & khôi phục -->
     <section class="panel" data-pane="backups" hidden>
       <div class="bk-stats" id="bk-stats"></div>
@@ -254,8 +314,6 @@
           <label class="field">YouTube <input class="input" name="youtube" placeholder="https://youtube.com/@... hoặc @handle"></label>
           <label class="field">TikTok <input class="input" name="tiktok" placeholder="https://tiktok.com/@... hoặc @handle"></label>
         </div>
-        <label class="field">Link Content Monitoring
-          <input class="input" type="url" name="monitoringUrl" placeholder="https://..."></label>
         <button class="btn btn-primary" type="submit">Lưu cài đặt</button>
       </form>
     </section>
