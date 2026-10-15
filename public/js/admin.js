@@ -5,6 +5,15 @@
 
   $$('[data-icon]').forEach((el) => { el.outerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 18); });
 
+  // Trình soạn thảo (public/js/editor.js). Khung trong danh sách / chính sách chỉ tạo khi mở ra.
+  const uploadDesc = LTBEditor.create($('#upload-desc'), '', { placeholder: 'Mô tả ảnh / âm thanh…' });
+  const editors = new WeakMap(); // phần tử .rte-wrap → editor
+  function editorIn(box, content) {
+    const wrap = $('.rte-wrap', box);
+    if (!editors.has(wrap)) editors.set(wrap, LTBEditor.create($('[data-rte]', wrap), content));
+    return editors.get(wrap);
+  }
+
   async function api(url, opts = {}) {
     const res = await fetch(url, {
       ...opts,
@@ -184,7 +193,7 @@
     if (!picked?.ok) return;
     const fd = new FormData();
     fd.append('title', form.title.value);
-    fd.append('description', form.description.value);
+    fd.append('description', uploadDesc.get());
     fd.append('publishedAt', form.publishedAt.value);
     if (picked.duration) fd.append('duration', picked.duration);
     for (const [k, v] of Object.entries(readCopyright($('#upload-copyright')))) fd.append(k, v);
@@ -210,7 +219,7 @@
       if (xhr.status >= 300) { toast(data.error || 'Tải lên thất bại', true); $('#submit').disabled = false; return; }
       toast(`Đã đăng "${data.title}" — ngày hiển thị ${fmtDate(data.publishedAt)}`);
       form.title.value = '';
-      form.description.value = '';
+      uploadDesc.clear();
       $('#upload-copyright').innerHTML = copyrightFieldsHTML(kind, NEW_COPYRIGHT);
       clearPicked();
     };
@@ -244,10 +253,17 @@
               <button class="btn btn-danger btn-sm" data-del aria-label="Xoá">${icon('trash', 16)}</button>
             </span>
           </div>
+          <details class="cr-edit" data-desc><summary>Mô tả${m.description ? '' : ' (trống)'}</summary><div class="rte-wrap"><div data-rte></div></div></details>
           <details class="cr-edit"><summary>Thông tin bản quyền</summary>${copyrightFieldsHTML(m.type, m)}</details>
         </div>
       </div>`).join('');
   }
+  // 'toggle' không nổi bọt → bắt ở pha capture
+  $('#items').addEventListener('toggle', (e) => {
+    if (!e.target.matches('[data-desc]') || !e.target.open) return;
+    const m = items.find((x) => x.id === e.target.closest('.item').dataset.id);
+    editorIn(e.target, m.description);
+  }, true);
   $('#manage-filter').addEventListener('click', (e) => {
     const c = e.target.closest('.chip');
     if (!c) return;
@@ -263,7 +279,11 @@
       if (e.target.closest('[data-save]')) {
         const updated = await api(`/api/admin/media/${id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ title: $('[name=title]', row).value, publishedAt: $('[name=publishedAt]', row).value, ...readCopyright(row) }),
+          body: JSON.stringify({
+            title: $('[name=title]', row).value, publishedAt: $('[name=publishedAt]', row).value, ...readCopyright(row),
+            // Chỉ gửi mô tả khi đã mở khung sửa (chưa mở = không đổi)
+            ...(editors.has($('[data-desc] .rte-wrap', row)) ? { description: editors.get($('[data-desc] .rte-wrap', row)).get() } : {}),
+          }),
         });
         Object.assign(items.find((m) => m.id === id), updated);
         toast('Đã lưu');
@@ -280,9 +300,11 @@
 
   // ---------- Chính sách ----------
   const policyStatus = (p) => (p.content.trim() ? `Cập nhật ${fmtDate(p.updatedAt)}` : 'Chưa có nội dung');
+  let policies = {};
   async function loadPolicies() {
     try {
       const list = await api('/api/admin/policies');
+      policies = Object.fromEntries(list.map((p) => [p.slug, p]));
       $('#policy-editors').innerHTML = list.map((p) => `
         <details class="policy-editor" data-slug="${esc(p.slug)}">
           <summary><span>${esc(p.title)}</span><small>${policyStatus(p)}</small></summary>
@@ -294,7 +316,7 @@
                 data-saved="${esc(p.updatedAt)}" title="Tự đổi thành hôm nay khi sửa nội dung, trừ khi bạn chọn ngày khác"></label>
               <label class="field">Operated by <input class="input" name="operatedBy" value="${esc(p.operatedBy)}" maxlength="200"></label>
             </div>
-            <label class="field">Nội dung <textarea class="input" name="content">${esc(p.content)}</textarea></label>
+            <div class="field">Nội dung <div class="rte-wrap tall"><div data-rte></div></div></div>
             <div class="actions">
               <a class="btn btn-ghost btn-sm" href="/policy/${esc(p.slug)}" target="_blank">Xem trang</a>
               <button class="btn btn-primary btn-sm" type="submit">Lưu</button>
@@ -303,6 +325,9 @@
         </details>`).join('');
     } catch (err) { toast(err.message, true); }
   }
+  $('#policy-editors').addEventListener('toggle', (e) => {
+    if (e.target.matches('.policy-editor') && e.target.open) editorIn(e.target, policies[e.target.dataset.slug].content);
+  }, true);
   $('#policy-editors').addEventListener('submit', async (e) => {
     e.preventDefault();
     const box = e.target.closest('.policy-editor');
@@ -313,10 +338,11 @@
       const p = await api(`/api/admin/policies/${encodeURIComponent(box.dataset.slug)}`, {
         method: 'PUT',
         body: JSON.stringify({
-          title: f.title.value, content: f.content.value,
+          title: f.title.value, content: editorIn(box).get(),
           effectiveDate: f.effectiveDate.value, updatedAt: f.updatedAt.value, operatedBy: f.operatedBy.value,
         }),
       });
+      policies[box.dataset.slug] = { ...policies[box.dataset.slug], ...p };
       f.updatedAt.value = f.updatedAt.dataset.saved = p.updatedAt;
       $('summary span', box).textContent = p.title;
       $('summary small', box).textContent = policyStatus(p);

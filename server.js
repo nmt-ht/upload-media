@@ -9,6 +9,15 @@ const config = require('./config');
 require('./lib/seed-demo'); // phải chạy trước khi lib/db đọc dữ liệu
 const db = require('./lib/db');
 const backup = require('./lib/backup');
+const rich = require('./lib/rich-text');
+
+// Mô tả từ trình soạn thảo (HTML đã lọc) hoặc chữ thường kiểu cũ. Trả về { value } hoặc { error }.
+const MAX_DESC = 20000;
+function descriptionInput(raw) {
+  const value = rich.clean(String(raw ?? '').trim());
+  if (value.length > MAX_DESC) return { error: `Mô tả quá dài (tối đa khoảng ${MAX_DESC / 1000}.000 ký tự)` };
+  return { value: rich.isHtml(value) && !value.replace(/<[^>]*>/g, '').trim() && !/<hr/i.test(value) ? '' : value };
+}
 const imageSize = require('./lib/image-size');
 const audioInfo = require('./lib/audio-info');
 
@@ -87,7 +96,7 @@ function itemPath(m) {
 // ---------- Public API ----------
 function publicItem(m) {
   const { uploadedAt, originalName, ...rest } = m;
-  return { ...COPYRIGHT_DEFAULTS, ...rest, path: itemPath(m) };
+  return { ...COPYRIGHT_DEFAULTS, ...rest, description: rich.clean(m.description), path: itemPath(m) };
 }
 function sorted(list) {
   return [...list].sort((a, b) =>
@@ -101,7 +110,7 @@ app.get('/api/policies', (req, res) =>
 app.get('/api/policies/:slug', (req, res) => {
   const p = Object.hasOwn(db.policies, req.params.slug) && db.policies[req.params.slug];
   if (!p) return res.status(404).json({ error: 'Không tìm thấy' });
-  res.json({ slug: req.params.slug, ...p });
+  res.json({ slug: req.params.slug, ...p, content: rich.clean(p.content) });
 });
 app.get('/api/limits', (req, res) => res.json({ image: config.image, audio: config.audio }));
 app.get('/api/media', (req, res) => {
@@ -112,7 +121,7 @@ app.get('/api/media', (req, res) => {
 
 // ---------- Admin API ----------
 app.get('/api/admin/media', requireAdmin, (req, res) =>
-  res.json(sorted(db.media).map((m) => ({ ...COPYRIGHT_DEFAULTS, ...m, path: itemPath(m) }))));
+  res.json(sorted(db.media).map((m) => ({ ...COPYRIGHT_DEFAULTS, ...m, description: rich.clean(m.description), path: itemPath(m) }))));
 
 const EXT = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
@@ -192,12 +201,14 @@ for (const kind of ['image', 'audio']) {
       if (!validDate(publishedAt)) return fail(400, 'Ngày đăng không hợp lệ');
       const copyright = copyrightPatch(req.body);
       if (copyright.error) return fail(400, copyright.error);
+      const desc = descriptionInput(req.body.description);
+      if (desc.error) return fail(400, desc.error);
 
       const item = {
         id: crypto.randomBytes(8).toString('hex'),
         type: kind,
         title: (req.body.title || '').trim().slice(0, 200) || path.parse(req.file.originalname).name,
-        description: (req.body.description || '').trim().slice(0, 1000),
+        description: desc.value,
         mime: req.file.mimetype,
         size: req.file.size,
         originalName: req.file.originalname,
@@ -254,7 +265,11 @@ app.patch('/api/admin/media/:id', requireAdmin, async (req, res) => {
   const patch = {};
   const { title, description, publishedAt } = req.body || {};
   if (typeof title === 'string' && title.trim()) patch.title = title.trim().slice(0, 200);
-  if (typeof description === 'string') patch.description = description.trim().slice(0, 1000);
+  if (typeof description === 'string') {
+    const desc = descriptionInput(description);
+    if (desc.error) return res.status(400).json({ error: desc.error });
+    patch.description = desc.value;
+  }
   if (publishedAt !== undefined) {
     if (!validDate(publishedAt)) return res.status(400).json({ error: 'Ngày đăng không hợp lệ' });
     patch.publishedAt = publishedAt;
@@ -365,10 +380,14 @@ app.post('/api/admin/backups/:name/restore', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/policies', requireAdmin, (req, res) =>
-  res.json(Object.entries(db.policies).map(([slug, p]) => ({ slug, ...p }))));
+  res.json(Object.entries(db.policies).map(([slug, p]) => ({ slug, ...p, content: rich.clean(p.content) }))));
 app.put('/api/admin/policies/:slug', requireAdmin, async (req, res) => {
   if (!Object.hasOwn(db.policies, req.params.slug)) return res.status(404).json({ error: 'Không tìm thấy' });
-  const body = req.body || {};
+  const body = { ...req.body };
+  if (typeof body.content === 'string') {
+    body.content = rich.clean(body.content.trim());
+    if (body.content.length > 100000) return res.status(400).json({ error: 'Nội dung quá dài (tối đa 100.000 ký tự)' });
+  }
   for (const [k, label] of [['effectiveDate', 'Effective Date'], ['updatedAt', 'Last Updated']]) {
     if (body[k] !== undefined && body[k] !== '' && !validDate(body[k])) return res.status(400).json({ error: label + ' không hợp lệ' });
   }
@@ -387,6 +406,8 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
   setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
 }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
+// Trình soạn thảo Quill (BSD-3-Clause) cho trang quản trị — lấy từ node_modules, không phụ thuộc CDN.
+app.use('/vendor/quill', express.static(path.join(ROOT, 'node_modules', 'quill', 'dist'), { maxAge: '7d' }));
 app.get('/policy/:slug', (req, res) => res.sendFile(path.join(ROOT, 'public', 'policy.html')));
 
 // Trang chi tiết: trả về trang kho tương ứng (media.js tự mở khung chi tiết theo URL), kèm thẻ
@@ -404,7 +425,11 @@ for (const [type, page] of [['image', 'images.html'], ['audio', 'audio.html']]) 
 
     const origin = `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
     const title = `${item.title} — LTB Media Network`;
-    const desc = item.description || (type === 'image' ? 'Hình ảnh có bản quyền — LTB Media Network' : 'Âm thanh có bản quyền — LTB Media Network');
+    // Thẻ chia sẻ: đoạn đầu của mô tả, bỏ ký hiệu định dạng (---, **, #), tối đa ~200 ký tự.
+    const summary = rich.toPlain(item.description).replace(/\r/g, '').split(/\n\s*\n/)[0]
+      .replace(/[-—]{3,}/g, ' ').replace(/\*\*|^#+\s*/gm, '').replace(/\s+/g, ' ').trim();
+    const desc = (summary.length > 200 ? summary.slice(0, 197).replace(/\s+\S*$/, '') + '…' : summary)
+      || (type === 'image' ? 'Hình ảnh có bản quyền — LTB Media Network' : 'Âm thanh có bản quyền — LTB Media Network');
     const meta = [
       `<link rel="canonical" href="${escAttr(origin + canonical)}">`,
       `<meta name="description" content="${escAttr(desc)}">`,

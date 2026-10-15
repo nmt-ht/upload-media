@@ -1,6 +1,6 @@
 // Hiển thị kho ảnh / kho âm thanh (dùng ở trang chủ và các trang kho).
 (function () {
-  const { icon, esc, fmtDate, fmtDateEn, fmtDuration } = LTB;
+  const { icon, esc, richText, firstLine, fmtDate, fmtDateEn, fmtDuration } = LTB;
 
   function emptyHTML(kind) {
     return `<div class="empty" style="grid-column:1/-1">${icon(kind === 'image' ? 'image' : 'audio', 36, 1.5)}
@@ -75,7 +75,7 @@
         </div>
       </div>
       ${m.type === 'audio' ? `<audio class="cr-audio" controls controlslist="nodownload" preload="none" src="${esc(m.url)}"></audio>` : ''}
-      ${m.description ? `<p class="cr-desc">${esc(m.description)}</p>` : ''}
+      ${m.description ? `<div class="cr-desc rich">${richText(m.description)}</div>` : ''}
       <h4 class="cr-heading">Copyright Information</h4>
       <ul class="cr-list">${rows.map(([ic, label, v]) =>
         `<li>${icon(ic, 20, 1.8)}<div><strong>${label}</strong><span>${v}</span></div></li>`).join('')}</ul>
@@ -191,7 +191,7 @@
         <div class="info">
           <strong data-info>${esc(m.title)}</strong>
           <div class="sub"><span class="date">${icon('calendar', 14)} ${fmtDate(m.publishedAt)}</span>
-            ${m.description ? `<span class="muted" style="font-size:13px">${esc(m.description)}</span>` : ''}</div>
+            ${m.description ? `<span class="desc-line" title="${esc(firstLine(m.description))}">${esc(firstLine(m.description))}</span>` : ''}</div>
           <div class="progress"><i></i></div>
         </div>
         <span class="dur">${fmtDuration(m.duration)}</span>

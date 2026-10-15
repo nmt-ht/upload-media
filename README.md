@@ -149,8 +149,13 @@ server.js            API + phục vụ trang
 config.js            giới hạn upload, cổng, mật khẩu
 lib/db.js            lưu dữ liệu JSON
 lib/backup.js        sao lưu tự động, thùng rác, khôi phục
+lib/rich-text.js     lọc HTML từ trình soạn thảo (chỉ giữ thẻ định dạng an toàn)
 lib/image-size.js    đọc kích thước ảnh (không cần thư viện ngoài)
 lib/audio-info.js    đọc thông số âm thanh (kHz / bit / kbps)
 deploy/              script cài đặt, cập nhật, sao lưu, khôi phục trên máy chủ Ubuntu
 public/              giao diện (HTML/CSS/JS thuần, không cần build)
+public/js/editor.js  trình soạn thảo mô tả & chính sách (Quill 2, phục vụ từ node_modules tại /vendor/quill)
 ```
+
+Thư viện dùng (đều miễn phí cho mục đích thương mại, không cần khoá bản quyền): express, multer (MIT),
+quill (BSD-3-Clause), sanitize-html (MIT). Phiên bản được khoá cố định trong `package.json`.

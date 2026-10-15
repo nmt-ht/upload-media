@@ -54,6 +54,59 @@
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // Định dạng đơn giản cho nội dung admin nhập (chính sách, mô tả ảnh/âm thanh): dòng trống = đoạn mới,
+  // xuống dòng = xuống dòng, "---" = đường kẻ ngang (đứng riêng một dòng hoặc ở cuối đoạn),
+  // "# " / "## " = tiêu đề, "- " = gạch đầu dòng, "1. " = danh sách số, **chữ đậm**; link và email tự thành liên kết.
+  function inline(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+      .replace(/(^|[\s(])([\w.+-]+@[\w-]+(\.[\w-]+)+)/g, '$1<a href="mailto:$2">$2</a>');
+  }
+  function formatText(text) {
+    const out = [];
+    let list = null; // { tag, items }
+    let para = [];
+    const flushPara = () => { if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; };
+    const flushList = () => { if (list) out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${list.tag}>`); list = null; };
+    for (const raw of String(text || '').replace(/\r/g, '').split('\n')) {
+      let line = raw.trim();
+      let m;
+      if (!line) { flushPara(); flushList(); continue; }
+      if (/^([-*_])\1{2,}$/.test(line)) { flushPara(); flushList(); out.push('<hr>'); continue; }
+      // "…câu cuối.---" → đoạn kết thúc, kẻ ngang ngay sau
+      const ruleAfter = /\s*[-—]{3,}$/.test(line);
+      if (ruleAfter) line = line.replace(/\s*[-—]{3,}$/, '');
+      if (!line) { flushPara(); flushList(); out.push('<hr>'); continue; }
+      if ((m = line.match(/^(#{1,3})\s+(.*)$/))) {
+        flushPara(); flushList();
+        out.push(`<h${m[1].length + 1}>${inline(m[2])}</h${m[1].length + 1}>`);
+      } else if ((m = line.match(/^(?:[-•*])\s+(.*)$/)) || (m = line.match(/^\d+[.)]\s+(.*)$/))) {
+        const tag = /^\d/.test(line) ? 'ol' : 'ul';
+        flushPara();
+        if (list && list.tag !== tag) flushList();
+        list = list || { tag, items: [] };
+        list.items.push(m[1]);
+      } else {
+        flushList();
+        para.push(line);
+      }
+      if (ruleAfter) { flushPara(); flushList(); out.push('<hr>'); }
+    }
+    flushPara(); flushList();
+    while (out[out.length - 1] === '<hr>') out.pop(); // kẻ ngang thừa ở cuối
+    return out.join('\n');
+  }
+  // Nội dung từ trình soạn thảo là HTML đã được server lọc (lib/rich-text.js) → hiển thị nguyên;
+  // nội dung cũ dạng chữ → formatText.
+  const isHtml = (s) => /^\s*<(p|h[1-6]|ul|ol|hr|blockquote|div|br)\b/i.test(s || '');
+  const richText = (s) => (isHtml(s) ? s : formatText(s));
+  // Một dòng tóm tắt (danh sách âm thanh): đoạn đầu, bỏ ký hiệu định dạng.
+  const firstLine = (text) => (isHtml(text)
+    ? (() => { const d = new DOMParser().parseFromString(text, 'text/html').body; return (d.querySelector('p,h2,h3,h4,li') || d).textContent; })()
+    : String(text || '').replace(/\r/g, '').split(/\n\s*\n/)[0])
+    .replace(/[-—]{3,}/g, ' ').replace(/\*\*|^#+\s*/gm, '').replace(/\s+/g, ' ').trim();
+
   function fmtDate(iso) {
     if (!iso) return '';
     const [y, m, d] = iso.slice(0, 10).split('-');
@@ -267,5 +320,5 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
   document.querySelectorAll('.drawer a').forEach((a) => a.addEventListener('click', closeAll));
 
-  window.LTB = { icon, esc, fmtDate, fmtDateEn, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML };
+  window.LTB = { icon, esc, formatText, richText, firstLine, fmtDate, fmtDateEn, fmtDuration, fmtBytes, toast, open, closeAll, settingsReady, contactOptionsHTML };
 })();

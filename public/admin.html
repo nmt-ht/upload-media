@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/quill/quill.snow.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .admin { max-width: 880px; padding-top: 28px; padding-bottom: 60px; }
@@ -70,7 +71,41 @@
     .policy-editor form { display: grid; gap: 12px; padding: 0 16px 16px; }
     .row3 { display: grid; gap: 12px; }
     @media (min-width: 640px) { .row3 { grid-template-columns: repeat(3, 1fr); } }
-    .policy-editor textarea { min-height: 320px; font-size: 14px; line-height: 1.6; }
+    /* Trình soạn thảo (Quill, giao diện tối) */
+    .rte-wrap { display: grid; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); overflow: hidden; }
+    .rte-wrap:focus-within { border-color: var(--accent); }
+    .rte-wrap .ql-toolbar.ql-snow { border: 0; border-bottom: 1px solid var(--line); background: var(--surface-2); padding: 6px 8px; font-family: inherit; }
+    .rte-wrap .ql-container.ql-snow { border: 0; font-family: inherit; font-size: 15px; color: var(--text); }
+    .rte-wrap .ql-editor { min-height: 140px; max-height: 60vh; overflow-y: auto; line-height: 1.6; padding: 12px 14px; }
+    .rte-wrap.tall .ql-editor { min-height: 320px; }
+    .rte-wrap .ql-editor.ql-blank::before { color: var(--dim); font-style: normal; left: 14px; }
+    .rte-wrap .ql-editor p { margin: 0 0 8px; }
+    .rte-wrap .ql-editor h2, .rte-wrap .ql-editor h3 { margin: 12px 0 6px; }
+    .rte-wrap .ql-editor hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+    .rte-wrap .ql-editor a { color: var(--accent); }
+    .rte-wrap .ql-editor blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding-left: 12px; color: var(--muted); }
+    .rte-wrap .ql-snow .ql-stroke { stroke: var(--muted); }
+    .rte-wrap .ql-snow .ql-fill { fill: var(--muted); }
+    .rte-wrap .ql-snow .ql-picker { color: var(--muted); }
+    .rte-wrap .ql-snow button:hover .ql-stroke, .rte-wrap .ql-snow button.ql-active .ql-stroke,
+    .rte-wrap .ql-snow .ql-picker-label:hover .ql-stroke, .rte-wrap .ql-snow .ql-picker-label.ql-active .ql-stroke { stroke: var(--accent); }
+    .rte-wrap .ql-snow button:hover .ql-fill, .rte-wrap .ql-snow button.ql-active .ql-fill { fill: var(--accent); }
+    .rte-wrap .ql-snow .ql-picker-label:hover, .rte-wrap .ql-snow .ql-picker-label.ql-active, .rte-wrap .ql-snow .ql-picker-item:hover { color: var(--accent); }
+    .rte-wrap .ql-snow .ql-picker-options { background: var(--surface-2); border-color: var(--line); }
+    .rte-wrap .ql-snow .ql-tooltip { background: var(--surface-2); border-color: var(--line); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 5; }
+    .rte-wrap .ql-snow .ql-tooltip input[type=text] { background: var(--bg); color: var(--text); border-color: var(--line); }
+    .rte-wrap .ql-snow .ql-tooltip a { color: var(--accent); }
+    .rte-hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+    /* Nhãn tiếng Việt cho Quill (Quill đặt chữ bằng CSS content) */
+    .rte-wrap .ql-snow .ql-picker.ql-header { width: 118px; }
+    .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-label::before, .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-item::before { content: 'Đoạn văn'; }
+    .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="2"]::before, .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before { content: 'Tiêu đề'; }
+    .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="3"]::before, .rte-wrap .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before { content: 'Tiêu đề nhỏ'; }
+    .rte-wrap .ql-snow .ql-tooltip::before { content: 'Mở link:'; }
+    .rte-wrap .ql-snow .ql-tooltip[data-mode=link]::before { content: 'Nhập link:'; }
+    .rte-wrap .ql-snow .ql-tooltip a.ql-action::after { content: 'Sửa'; }
+    .rte-wrap .ql-snow .ql-tooltip.ql-editing a.ql-action::after { content: 'Lưu'; }
+    .rte-wrap .ql-snow .ql-tooltip a.ql-remove::before { content: 'Bỏ link'; }
     .policy-editor .actions { display: flex; gap: 8px; justify-content: flex-end; }
     .btn-danger { background: none; border: 1px solid #4a2626; color: var(--danger); }
     .btn-danger:hover { background: rgba(255, 92, 92, .1); }
@@ -146,8 +181,10 @@
             <span class="quick-dates" id="quick-dates"></span>
           </label>
         </div>
-        <label class="field">Mô tả <small>(không bắt buộc)</small>
-          <textarea class="input" name="description" maxlength="1000"></textarea></label>
+        <div class="field">Mô tả <small>(không bắt buộc)</small>
+          <div class="rte-wrap"><div id="upload-desc"></div></div>
+          <span class="rte-hint">Dán từ Word / Google Docs được — màu chữ, font, cỡ chữ tự bỏ để khớp giao diện web.</span>
+        </div>
         <fieldset class="cr-fields"><legend>Thông tin bản quyền <small>— hiện trong khung Copyright Information</small></legend>
           <div id="upload-copyright"></div></fieldset>
         <p class="hint" style="margin:0">Ngày đăng công khai là ngày khách xem thấy trên website. Ngày tải lên thật được hệ thống lưu riêng, chỉ hiện trong trang quản trị.</p>
@@ -172,8 +209,8 @@
     <!-- Cài đặt -->
     <section class="panel" data-pane="policies" hidden>
       <p class="hint" style="margin:0 0 14px">Các trang này hiện thành hàng link dưới <b>Follow Us</b> ở cuối trang chủ.
-        Cách trình bày: để 1 dòng trống giữa các đoạn · <code># Tiêu đề</code> / <code>## Tiêu đề nhỏ</code> ·
-        <code>- </code> gạch đầu dòng · <code>1. </code> danh sách số · <code>**chữ đậm**</code> · link và email tự thành liên kết.</p>
+        Mở từng trang để soạn bằng thanh công cụ (tiêu đề, đậm, danh sách, link, đường kẻ). Dán từ Word / Google Docs được —
+        màu chữ, font, cỡ chữ tự bỏ để khớp giao diện web.</p>
       <div class="policy-editors" id="policy-editors"></div>
     </section>
 
@@ -225,6 +262,8 @@
   </main>
 
   <script src="/js/common.js"></script>
+  <script src="/vendor/quill/quill.js"></script>
+  <script src="/js/editor.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>

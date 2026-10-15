@@ -231,6 +231,8 @@ a.social:hover { color: var(--accent-ink); background: var(--accent); border-col
 .policy-body li { margin: 4px 0; }
 .policy-body a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .policy-body strong { color: var(--text); }
+.policy-body hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
+.policy-body blockquote { margin: 0 0 14px; padding-left: 14px; border-left: 3px solid var(--accent); color: var(--muted); }
 .policy-nav { max-width: 760px; margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); }
 .policy-nav strong { font-size: 14px; }
 .policy-nav .policy-links { margin-top: 10px; }
@@ -342,7 +344,17 @@ a.social:hover { color: var(--accent-ink); background: var(--accent); border-col
 .pill { font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #2e2e2e; color: var(--text); }
 .pill-ok { background: rgba(74, 222, 128, .14); color: var(--ok); }
 .cr-audio { width: 100%; margin-top: 16px; }
-.cr-desc { margin: 16px 0 0; color: var(--muted); font-size: 14px; }
+.cr-desc { margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.cr-desc p { margin: 0 0 10px; }
+.cr-desc h2, .cr-desc h3, .cr-desc h4 { margin: 14px 0 6px; font-size: 15px; color: var(--text); }
+.cr-desc ul, .cr-desc ol { margin: 0 0 10px; padding-left: 20px; }
+.cr-desc li { margin: 2px 0; }
+.cr-desc strong { color: var(--text); }
+.cr-desc a { color: var(--accent); }
+.cr-desc hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+.cr-desc blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid var(--accent); }
+.cr-desc > :last-child { margin-bottom: 0; }
+.track .desc-line { flex: 1 1 160px; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cr-heading { margin: 22px 0 16px; font-size: 20px; font-weight: 700; }
 .cr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
 .cr-list li { display: flex; gap: 14px; align-items: flex-start; }
